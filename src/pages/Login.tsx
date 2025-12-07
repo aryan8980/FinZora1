@@ -1,0 +1,145 @@
+import { useState, type FormEvent } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Navbar } from '@/components/Navbar';
+import { motion } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { disableGuestSession, enableGuestSession } from '@/hooks/use-guest-mode';
+
+export default function Login() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast({
+        title: 'Missing credentials',
+        description: 'Please enter both email and password.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await signInWithEmailAndPassword(auth, email, password);
+      disableGuestSession();
+      toast({
+        title: 'Login Successful!',
+        description: 'Welcome back to FinZora',
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Firebase login error', error);
+      toast({
+        title: 'Unable to sign in',
+        description:
+          (error as { message?: string }).message ?? 'Please verify your credentials and try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGuestLogin = () => {
+    enableGuestSession();
+    navigate('/dashboard');
+  };
+
+  return (
+    <div className="min-h-screen">
+      <Navbar />
+      
+      <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
+        <div className="absolute inset-0 gradient-hero opacity-50" />
+        
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.4 }}
+          className="w-full max-w-md relative z-10"
+        >
+          <Card className="glass-card shadow-glow">
+            <CardHeader className="text-center space-y-2">
+              <div className="flex justify-center mb-4">
+                <div className="p-3 bg-gradient-primary rounded-2xl">
+                  <Sparkles className="h-8 w-8 text-primary-foreground" />
+                </div>
+              </div>
+              <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
+              <CardDescription>Sign in to continue your financial journey</CardDescription>
+            </CardHeader>
+            
+            <CardContent className="space-y-6">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="bg-background"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="bg-background"
+                  />
+                </div>
+
+                <Button type="submit" className="w-full gradient-primary" disabled={isLoading}>
+                  {isLoading ? 'Signing In…' : 'Sign In'}
+                </Button>
+              </form>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full"
+                onClick={handleGuestLogin}
+              >
+                Continue as Guest
+              </Button>
+
+              <p className="text-center text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Link to="/signup" className="text-primary hover:underline">
+                  Sign up
+                </Link>
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
