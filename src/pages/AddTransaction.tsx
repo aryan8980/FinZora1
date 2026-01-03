@@ -17,6 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { categorizeTransaction } from '@/utils/categorizeAI';
 import { useToast } from '@/hooks/use-toast';
+import { auth, db } from '@/lib/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import type { Transaction } from '@/utils/dummyData';
+import { appendUserTransaction } from '@/utils/transactionsStorage';
 
 export default function AddTransaction() {
   const [title, setTitle] = useState('');
@@ -37,8 +41,12 @@ export default function AddTransaction() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    console.log('AddTransaction: submit clicked');
+    toast({
+      title: 'Saving transaction...',
+      description: 'Please wait while we store your data.',
+    });
     
     if (!title || !amount || !date || !category) {
       toast({
@@ -48,10 +56,49 @@ export default function AddTransaction() {
       });
       return;
     }
+    const baseTransaction: Transaction = {
+      id:
+        (typeof crypto !== 'undefined' && 'randomUUID' in crypto &&
+          // @ts-expect-error - randomUUID may not exist in older environments
+          crypto.randomUUID()) ||
+        Date.now().toString(),
+      title,
+      amount: Number(amount),
+      date,
+      category,
+      description,
+      type,
+    };
+
+    const user = auth.currentUser;
+
+    try {
+      if (!user) {
+        appendUserTransaction(baseTransaction);
+      } else {
+        await addDoc(collection(db, 'users', user.uid, 'transactions'), {
+          title: baseTransaction.title,
+          amount: baseTransaction.amount,
+          date: baseTransaction.date,
+          category: baseTransaction.category,
+          description: baseTransaction.description,
+          type: baseTransaction.type,
+          createdAt: serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error('Error adding transaction', error);
+      toast({
+        title: 'Failed to add transaction',
+        description: 'Something went wrong while saving your transaction. Please try again.',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     toast({
       title: 'Transaction Added!',
-      description: `Successfully added ${type} of ₹${amount}`,
+       description: `Successfully added ${type} of ₹${amount}`,
     });
 
     // Reset form
@@ -84,7 +131,13 @@ export default function AddTransaction() {
               </CardHeader>
               
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleSubmit();
+                  }}
+                  className="space-y-6"
+                >
                   <div className="grid md:grid-cols-2 gap-6">
                     <div className="space-y-2">
                       <Label htmlFor="type">Type</Label>
@@ -170,7 +223,14 @@ export default function AddTransaction() {
                   </div>
 
                   <div className="flex gap-4">
-                    <Button type="submit" className="flex-1 gradient-primary">
+                    <Button
+                      type="submit"
+                      className="flex-1 gradient-primary"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void handleSubmit();
+                      }}
+                    >
                       Add Transaction
                     </Button>
                     <Button type="button" variant="outline" onClick={() => navigate('/transactions')}>

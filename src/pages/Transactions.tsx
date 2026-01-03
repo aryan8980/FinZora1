@@ -14,36 +14,145 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Search, Edit, Trash2, Plus } from 'lucide-react';
-import { dummyTransactions } from '@/utils/dummyData';
+import { dummyTransactions, type Transaction } from '@/utils/dummyData';
 import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useGuestMode } from '@/hooks/use-guest-mode';
+import { auth, db } from '@/lib/firebase';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { loadUserTransactions, saveUserTransactions } from '@/utils/transactionsStorage';
 
 const buildGuestTransactions = () => dummyTransactions.map((transaction) => ({ ...transaction }));
 
 export default function Transactions() {
   const [search, setSearch] = useState('');
   const isGuestMode = useGuestMode();
-  const [transactions, setTransactions] = useState(() =>
-    isGuestMode ? buildGuestTransactions() : []
-  );
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
   const { toast } = useToast();
 
   useEffect(() => {
-    setTransactions(isGuestMode ? buildGuestTransactions() : []);
-  }, [isGuestMode]);
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (isGuestMode) {
+      const localTransactions = loadUserTransactions();
+      setTransactions([...buildGuestTransactions(), ...localTransactions]);
+      return;
+    }
+
+    if (!user) {
+      // Not authenticated: fall back to local transactions only
+      const localTransactions = loadUserTransactions();
+      setTransactions(localTransactions);
+      return;
+    }
+
+    // When a user logs in for the first time on this device,
+    // migrate any existing local transactions into their Firestore account
+    try {
+      const localTransactions = loadUserTransactions();
+      const migrationFlagKey = `finzora-transactions-migrated-${user.uid}`;
+
+      const hasWindow = typeof window !== 'undefined';
+      const alreadyMigrated = hasWindow
+        ? window.localStorage.getItem(migrationFlagKey) === 'true'
+        : true;
+
+      if (localTransactions.length && !alreadyMigrated) {
+        (async () => {
+          try {
+            await Promise.all(
+              localTransactions.map((tx) =>
+                addDoc(collection(db, 'users', user.uid, 'transactions'), {
+                  title: tx.title,
+                  amount: tx.amount,
+                  date: tx.date,
+                  category: tx.category,
+                  description: tx.description,
+                  type: tx.type,
+                })
+              )
+            );
+
+            if (hasWindow) {
+              window.localStorage.setItem(migrationFlagKey, 'true');
+            }
+          } catch (error) {
+            console.error('Error migrating local transactions to Firestore', error);
+          }
+        })();
+      }
+    } catch (error) {
+      console.error('Error preparing transaction migration', error);
+    }
+
+    const q = query(
+      collection(db, 'users', user.uid, 'transactions'),
+      orderBy('date', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const userTransactions: Transaction[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as any;
+        return {
+          id: docSnap.id,
+          title: data.title ?? '',
+          amount:
+            typeof data.amount === 'number'
+              ? data.amount
+              : Number(data.amount) || 0,
+          date: data.date ?? '',
+          category: data.category ?? '',
+          description: data.description ?? '',
+          type: data.type === 'income' ? 'income' : 'expense',
+        };
+      });
+
+      setTransactions(userTransactions);
+    });
+
+    return () => unsubscribe();
+  }, [isGuestMode, user]);
 
   const filteredTransactions = transactions.filter((t) =>
     t.title.toLowerCase().includes(search.toLowerCase()) ||
     t.category.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDelete = (id: string) => {
-    setTransactions(transactions.filter((t) => t.id !== id));
-    toast({
-      title: 'Transaction Deleted',
-      description: 'The transaction has been removed',
-    });
+  const handleDelete = async (id: string) => {
+    if (!user) {
+      // Local-only mode: update local storage
+      setTransactions((prev) => prev.filter((t) => t.id !== id));
+      const updated = loadUserTransactions().filter((t) => t.id !== id);
+      saveUserTransactions(updated);
+      toast({
+        title: 'Transaction Deleted',
+        description: 'The transaction has been removed',
+      });
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'transactions', id));
+      toast({
+        title: 'Transaction Deleted',
+        description: 'The transaction has been removed',
+      });
+    } catch (error) {
+      console.error('Error deleting transaction from Firestore', error);
+      toast({
+        title: 'Failed to delete transaction',
+        description: 'Something went wrong while deleting from the cloud. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (

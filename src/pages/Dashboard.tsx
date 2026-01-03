@@ -1,12 +1,17 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { SummaryCard } from '@/components/SummaryCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { monthlyTrends, categoryData } from '@/utils/dummyData';
+import { monthlyTrends as guestMonthlyTrends, categoryData as guestCategoryData, type Transaction } from '@/utils/dummyData';
 import { motion } from 'framer-motion';
 import { useGuestMode } from '@/hooks/use-guest-mode';
+import { auth, db } from '@/lib/firebase';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { loadUserTransactions } from '@/utils/transactionsStorage';
 
 const ChartEmptyState = ({ message }: { message: string }) => (
   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
@@ -16,6 +21,121 @@ const ChartEmptyState = ({ message }: { message: string }) => (
 
 export default function Dashboard() {
   const isGuestSession = useGuestMode();
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (isGuestSession) {
+      const local = loadUserTransactions();
+      setTransactions([...local]);
+      return;
+    }
+
+    if (!user) {
+      setTransactions(loadUserTransactions());
+      return;
+    }
+
+    const q = query(
+      collection(db, 'users', user.uid, 'transactions'),
+      orderBy('date', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs: Transaction[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as any;
+        return {
+          id: docSnap.id,
+          title: data.title ?? '',
+          amount:
+            typeof data.amount === 'number'
+              ? data.amount
+              : Number(data.amount) || 0,
+          date: data.date ?? '',
+          category: data.category ?? '',
+          description: data.description ?? '',
+          type: data.type === 'income' ? 'income' : 'expense',
+        };
+      });
+      setTransactions(docs);
+    });
+
+    return () => unsubscribe();
+  }, [isGuestSession, user]);
+
+  const { totalIncome, totalExpenses, totalBalance } = useMemo(() => {
+    const income = transactions
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = transactions
+      .filter((t) => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    return {
+      totalIncome: income,
+      totalExpenses: expenses,
+      totalBalance: income - expenses,
+    };
+  }, [transactions]);
+
+  const computedLineData = useMemo(() => {
+    if (!transactions.length) return [] as { month: string; income: number; expense: number }[];
+
+    const byMonth = new Map<string, { income: number; expense: number; order: number }>();
+
+    for (const t of transactions) {
+      const d = new Date(t.date);
+      if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const monthLabel = d.toLocaleString('default', { month: 'short' });
+      const current = byMonth.get(key) ?? { income: 0, expense: 0, order: d.getTime() };
+      if (t.type === 'income') current.income += t.amount;
+      else current.expense += t.amount;
+      current.order = Math.min(current.order, d.getTime());
+      byMonth.set(key, current);
+    }
+
+    return Array.from(byMonth.entries())
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([key, value]) => {
+        const [year, month] = key.split('-').map(Number);
+        const label = new Date(year, month, 1).toLocaleString('default', { month: 'short' });
+        return { month: label, income: value.income, expense: value.expense };
+      });
+  }, [transactions]);
+
+  const computedPieData = useMemo(() => {
+    if (!transactions.length) return [] as { name: string; value: number; color: string }[];
+
+    const byCategory = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.type !== 'expense') continue;
+      const current = byCategory.get(t.category) ?? 0;
+      byCategory.set(t.category || 'Other', current + t.amount);
+    }
+
+    const palette = [
+      'hsl(217 91% 60%)',
+      'hsl(270 67% 57%)',
+      'hsl(142 71% 45%)',
+      'hsl(217 91% 75%)',
+      'hsl(270 67% 75%)',
+      'hsl(25 95% 53%)',
+    ];
+
+    return Array.from(byCategory.entries()).map(([name, value], index) => ({
+      name,
+      value,
+      color: palette[index % palette.length],
+    }));
+  }, [transactions]);
 
   const summaryCards = isGuestSession
     ? [
@@ -41,26 +161,32 @@ export default function Dashboard() {
     : [
         {
           title: 'Total Balance',
-          amount: '₹0',
+          amount: `₹${totalBalance.toLocaleString()}`,
           icon: Wallet,
-          trend: 'Add your first transaction to see insights',
+          trend: transactions.length
+            ? 'Based on your recorded transactions'
+            : 'Add your first transaction to see insights',
         },
         {
           title: 'Total Income',
-          amount: '₹0',
+          amount: `₹${totalIncome.toLocaleString()}`,
           icon: TrendingUp,
-          trend: 'Connect income sources to populate this chart',
+          trend: transactions.length
+            ? 'Sum of all income transactions'
+            : 'Connect income sources to populate this chart',
         },
         {
           title: 'Total Expenses',
-          amount: '₹0',
+          amount: `₹${totalExpenses.toLocaleString()}`,
           icon: TrendingDown,
-          trend: 'Expenses will appear once you start tracking',
+          trend: transactions.length
+            ? 'Sum of all expense transactions'
+            : 'Expenses will appear once you start tracking',
         },
       ];
 
-  const lineData = isGuestSession ? monthlyTrends : [];
-  const pieData = isGuestSession ? categoryData : [];
+  const lineData = isGuestSession ? guestMonthlyTrends : computedLineData;
+  const pieData = isGuestSession ? guestCategoryData : computedPieData;
 
   const insights = isGuestSession
     ? [

@@ -142,9 +142,31 @@ export default function Investments() {
     { name: 'Stocks', value: totalStockValue, color: 'hsl(142 71% 45%)' },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    let currentPriceNumber: number;
+
+    if (formData.type === 'stock') {
+      const quote = await getStockPrice(formData.symbol);
+
+      if (quote && typeof quote.price === 'number' && !Number.isNaN(quote.price)) {
+        currentPriceNumber = quote.price;
+      } else {
+        toast({
+          title: 'Could not fetch stock price',
+          description: 'Using your buy price as the current price for now.',
+        });
+        currentPriceNumber = parseFloat(formData.buyPrice || '0');
+      }
+    } else {
+      currentPriceNumber = parseFloat(formData.currentPrice || '0');
+    }
+
+    if (Number.isNaN(currentPriceNumber)) {
+      currentPriceNumber = 0;
+    }
+
     if (editingId) {
       setInvestments(
         investments.map((inv) =>
@@ -154,7 +176,7 @@ export default function Investments() {
                 ...formData,
                 quantity: parseFloat(formData.quantity),
                 buyPrice: parseFloat(formData.buyPrice),
-                currentPrice: parseFloat(formData.currentPrice),
+                currentPrice: currentPriceNumber,
               }
             : inv
         )
@@ -166,7 +188,7 @@ export default function Investments() {
         ...formData,
         quantity: parseFloat(formData.quantity),
         buyPrice: parseFloat(formData.buyPrice),
-        currentPrice: parseFloat(formData.currentPrice),
+        currentPrice: currentPriceNumber,
       };
       setInvestments([...investments, newInvestment]);
       toast({ title: 'Investment added successfully!' });
@@ -548,18 +570,6 @@ export default function Investments() {
                           value={formData.buyPrice}
                           onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
                           placeholder="e.g., 175"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="currentPrice">Current Price (₹)</Label>
-                        <Input
-                          id="currentPrice"
-                          type="number"
-                          step="0.01"
-                          value={formData.currentPrice}
-                          onChange={(e) => setFormData({ ...formData, currentPrice: e.target.value })}
-                          placeholder="e.g., 185"
                           required
                         />
                       </div>

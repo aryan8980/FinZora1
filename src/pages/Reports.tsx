@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
@@ -19,8 +20,12 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { monthlyTrends, categoryData } from '@/utils/dummyData';
+import { monthlyTrends as guestMonthlyTrends, categoryData as guestCategoryData, type Transaction } from '@/utils/dummyData';
 import { useGuestMode } from '@/hooks/use-guest-mode';
+import { auth, db } from '@/lib/firebase';
+import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { onAuthStateChanged, type User } from 'firebase/auth';
+import { loadUserTransactions } from '@/utils/transactionsStorage';
 
 const savingsTrend = [
   { month: 'Jul', savings: 13000 },
@@ -34,41 +39,167 @@ const savingsTrend = [
 const ChartEmptyState = ({ message }: { message: string }) => (
   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
     {message}
-              <CardContent>
-                {savingsData.length ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={savingsData}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                      <YAxis stroke="hsl(var(--muted-foreground))" />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: 'hsl(var(--card))',
-                          border: '1px solid hsl(var(--border))',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Line 
-                        type="monotone" 
-                        dataKey="savings" 
-                        stroke="hsl(var(--success))" 
-                        strokeWidth={3}
-                        dot={{ fill: 'hsl(var(--success))', r: 6 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <ChartEmptyState message="Savings insights appear once you start logging income and expenses." />
-                )}
-              </CardContent>
-    : [
+  </div>
+);
+
+export default function Reports() {
+  const isGuestMode = useGuestMode();
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!user) {
+      setTransactions(loadUserTransactions());
+      return;
+    }
+
+    const q = query(
+      collection(db, 'users', user.uid, 'transactions'),
+      orderBy('date', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const docs: Transaction[] = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as any;
+        return {
+          id: docSnap.id,
+          title: data.title ?? '',
+          amount:
+            typeof data.amount === 'number'
+              ? data.amount
+              : Number(data.amount) || 0,
+          date: data.date ?? '',
+          category: data.category ?? '',
+          description: data.description ?? '',
+          type: data.type === 'income' ? 'income' : 'expense',
+        };
+      });
+
+      setTransactions(docs);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const categoryChartData = useMemo(() => {
+    if (isGuestMode) return guestCategoryData;
+    if (!transactions.length) return [] as { name: string; value: number; color: string }[];
+
+    const byCategory = new Map<string, number>();
+    for (const t of transactions) {
+      if (t.type !== 'expense') continue;
+      const key = t.category || 'Other';
+      byCategory.set(key, (byCategory.get(key) ?? 0) + t.amount);
+    }
+
+    const palette = [
+      'hsl(217 91% 60%)',
+      'hsl(270 67% 57%)',
+      'hsl(142 71% 45%)',
+      'hsl(217 91% 75%)',
+      'hsl(270 67% 75%)',
+      'hsl(25 95% 53%)',
+    ];
+
+    return Array.from(byCategory.entries()).map(([name, value], index) => ({
+      name,
+      value,
+      color: palette[index % palette.length],
+    }));
+  }, [isGuestMode, transactions]);
+
+  const spendingTrendData = useMemo(() => {
+    if (isGuestMode) return guestMonthlyTrends;
+    if (!transactions.length) return [] as { month: string; income: number; expense: number }[];
+
+    const byMonth = new Map<string, { income: number; expense: number; order: number }>();
+
+    for (const t of transactions) {
+      const d = new Date(t.date);
+      if (Number.isNaN(d.getTime())) continue;
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const current = byMonth.get(key) ?? { income: 0, expense: 0, order: d.getTime() };
+      if (t.type === 'income') current.income += t.amount;
+      else current.expense += t.amount;
+      current.order = Math.min(current.order, d.getTime());
+      byMonth.set(key, current);
+    }
+
+    return Array.from(byMonth.entries())
+      .sort((a, b) => a[1].order - b[1].order)
+      .map(([key, value]) => {
+        const [year, month] = key.split('-').map(Number);
+        const label = new Date(year, month, 1).toLocaleString('default', { month: 'short' });
+        return { month: label, income: value.income, expense: value.expense };
+      });
+  }, [isGuestMode, transactions]);
+
+  const savingsData = useMemo(() => {
+    if (isGuestMode) return savingsTrend;
+    if (!spendingTrendData.length) return [] as { month: string; savings: number }[];
+
+    return spendingTrendData.map((row) => ({
+      month: row.month,
+      savings: row.income - row.expense,
+    }));
+  }, [isGuestMode, spendingTrendData]);
+
+  const insights = useMemo(() => {
+    if (isGuestMode) {
+      return [
+        {
+          title: 'Spending is stable across categories',
+          description:
+            'Your expenses are well-distributed. Consider optimizing subscriptions to increase monthly savings.',
+          variant: 'default' as const,
+        },
+        {
+          title: 'Savings rate improving',
+          description:
+            'Your savings have grown steadily over the last 6 months. Stay consistent to reach long-term goals.',
+          variant: 'success' as const,
+        },
+      ];
+    }
+
+    if (!transactions.length) {
+      return [
         {
           title: 'Insights unavailable',
           description:
-            'Connect your accounts or add transactions to unlock AI-powered spending analysis.',
-          variant: 'accent',
+            'Add transactions to unlock AI-powered spending analysis and reports.',
+          variant: 'accent' as const,
         },
       ];
+    }
+
+    const total = transactions.reduce((sum, t) => sum + t.amount * (t.type === 'income' ? 1 : -1), 0);
+    const expenseTotal = transactions
+      .filter((t) => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return [
+      {
+        title: 'Live spending overview',
+        description: `You have recorded ${transactions.length} transactions. Net balance impact is ₹${total.toLocaleString()}.`,
+        variant: 'default' as const,
+      },
+      {
+        title: 'Expense intensity',
+        description: `Total expenses across all categories are ₹${expenseTotal.toLocaleString()}.`,
+        variant: 'accent' as const,
+      },
+    ];
+  }, [isGuestMode, transactions]);
+
   return (
     <div className="min-h-screen">
       <Navbar showProfile />
@@ -148,9 +279,9 @@ const ChartEmptyState = ({ message }: { message: string }) => (
                   <CardTitle>Monthly Spending</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {monthlyTrendData.length ? (
+                  {spendingTrendData.length ? (
                     <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={monthlyTrendData}>
+                      <BarChart data={spendingTrendData}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                         <YAxis stroke="hsl(var(--muted-foreground))" />
@@ -185,27 +316,31 @@ const ChartEmptyState = ({ message }: { message: string }) => (
                 <CardTitle>Savings Trend</CardTitle>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={savingsTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                    <YAxis stroke="hsl(var(--muted-foreground))" />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--card))',
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="savings" 
-                      stroke="hsl(var(--success))" 
-                      strokeWidth={3}
-                      dot={{ fill: 'hsl(var(--success))', r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                  {savingsData.length ? (
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={savingsData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                        <YAxis stroke="hsl(var(--muted-foreground))" />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: '8px'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="savings" 
+                          stroke="hsl(var(--success))" 
+                          strokeWidth={3}
+                          dot={{ fill: 'hsl(var(--success))', r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <ChartEmptyState message="Savings trend will appear after you log income and expenses." />
+                  )}
               </CardContent>
             </Card>
           </motion.div>
