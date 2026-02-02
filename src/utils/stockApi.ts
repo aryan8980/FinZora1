@@ -2,7 +2,8 @@
 // Note: For production, store API keys securely (environment variables or a secret manager)
 
 const ALPHA_VANTAGE_API = 'https://www.alphavantage.co/query';
-const DEMO_API_KEY = 'demo'; // Replace with actual key or use Cloud secrets
+// Use Vite env key exposed from .env (must be prefixed with VITE_ to be available in frontend)
+const API_KEY = import.meta.env.VITE_ALPHA_VANTAGE_API_KEY || 'demo';
 
 interface StockQuote {
   symbol: string;
@@ -14,7 +15,7 @@ interface StockQuote {
 export const getStockPrice = async (symbol: string): Promise<StockQuote | null> => {
   try {
     const response = await fetch(
-      `${ALPHA_VANTAGE_API}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${DEMO_API_KEY}`
+      `${ALPHA_VANTAGE_API}?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`
     );
     const data = await response.json();
     

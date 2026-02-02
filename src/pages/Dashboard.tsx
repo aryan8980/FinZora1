@@ -137,74 +137,54 @@ export default function Dashboard() {
     }));
   }, [transactions]);
 
-  const summaryCards = isGuestSession
-    ? [
-        {
-          title: 'Total Balance',
-          amount: '₹47,200',
-          icon: Wallet,
-          trend: '+12% from last month',
-        },
-        {
-          title: 'Total Income',
-          amount: '₹50,000',
-          icon: TrendingUp,
-          trend: '+5% from last month',
-        },
-        {
-          title: 'Total Expenses',
-          amount: '₹34,800',
-          icon: TrendingDown,
-          trend: '-8% from last month',
-        },
-      ]
-    : [
-        {
-          title: 'Total Balance',
-          amount: `₹${totalBalance.toLocaleString()}`,
-          icon: Wallet,
-          trend: transactions.length
-            ? 'Based on your recorded transactions'
-            : 'Add your first transaction to see insights',
-        },
-        {
-          title: 'Total Income',
-          amount: `₹${totalIncome.toLocaleString()}`,
-          icon: TrendingUp,
-          trend: transactions.length
-            ? 'Sum of all income transactions'
-            : 'Connect income sources to populate this chart',
-        },
-        {
-          title: 'Total Expenses',
-          amount: `₹${totalExpenses.toLocaleString()}`,
-          icon: TrendingDown,
-          trend: transactions.length
-            ? 'Sum of all expense transactions'
-            : 'Expenses will appear once you start tracking',
-        },
-      ];
+  // UNIFIED SUMMARY CARDS (Both Local and Cloud users see real calculated data now)
+  const summaryCards = [
+    {
+      title: 'Total Balance',
+      amount: `₹${totalBalance.toLocaleString()}`,
+      icon: Wallet,
+      trend: transactions.length
+        ? 'Based on your recorded transactions'
+        : 'Add your first transaction to see insights',
+    },
+    {
+      title: 'Total Income',
+      amount: `₹${totalIncome.toLocaleString()}`,
+      icon: TrendingUp,
+      trend: transactions.length
+        ? 'Sum of all income transactions'
+        : 'Connect income sources to populate this chart',
+    },
+    {
+      title: 'Total Expenses',
+      amount: `₹${totalExpenses.toLocaleString()}`,
+      icon: TrendingDown,
+      trend: transactions.length
+        ? 'Sum of all expense transactions'
+        : 'Expenses will appear once you start tracking',
+    },
+  ];
 
-  const lineData = isGuestSession ? guestMonthlyTrends : computedLineData;
-  const pieData = isGuestSession ? guestCategoryData : computedPieData;
+  const lineData = computedLineData;
+  const pieData = computedPieData;
 
   const insights = isGuestSession
     ? [
-        "📊 You're overspending 15% on Food this month compared to your average. Consider meal planning to reduce expenses.",
-        '✨ Great job! Your savings rate increased by 8% this month. Keep up the good work!',
-      ]
+      "📊 You're overspending 15% on Food this month compared to your average. Consider meal planning to reduce expenses.",
+      '✨ Great job! Your savings rate increased by 8% this month. Keep up the good work!',
+    ]
     : [
-        'Once you start logging transactions, FinZora AI will surface personalized insights here.',
-        'Connect your accounts or add expenses to unlock smarter recommendations.',
-      ];
+      'Once you start logging transactions, FinZora AI will surface personalized insights here.',
+      'Connect your accounts or add expenses to unlock smarter recommendations.',
+    ];
 
   return (
     <div className="min-h-screen">
       <Navbar showProfile />
-      
+
       <div className="flex">
         <Sidebar />
-        
+
         <main className="flex-1 p-6 space-y-6">
           {/* Summary Cards */}
           <div className="grid md:grid-cols-3 gap-6">
@@ -239,8 +219,8 @@ export default function Dashboard() {
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
                         <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip 
-                          contentStyle={{ 
+                        <Tooltip
+                          contentStyle={{
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '8px'
@@ -285,8 +265,8 @@ export default function Dashboard() {
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
+                        <Tooltip
+                          contentStyle={{
                             backgroundColor: 'hsl(var(--card))',
                             border: '1px solid hsl(var(--border))',
                             borderRadius: '8px'

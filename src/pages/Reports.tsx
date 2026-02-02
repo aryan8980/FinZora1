@@ -27,15 +27,6 @@ import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { loadUserTransactions } from '@/utils/transactionsStorage';
 
-const savingsTrend = [
-  { month: 'Jul', savings: 13000 },
-  { month: 'Aug', savings: 13000 },
-  { month: 'Sep', savings: 17000 },
-  { month: 'Oct', savings: 12000 },
-  { month: 'Nov', savings: 16000 },
-  { month: 'Dec', savings: 16000 },
-];
-
 const ChartEmptyState = ({ message }: { message: string }) => (
   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
     {message}
@@ -143,40 +134,22 @@ export default function Reports() {
   }, [isGuestMode, transactions]);
 
   const savingsData = useMemo(() => {
-    if (isGuestMode) return savingsTrend;
     if (!spendingTrendData.length) return [] as { month: string; savings: number }[];
 
     return spendingTrendData.map((row) => ({
       month: row.month,
       savings: row.income - row.expense,
     }));
-  }, [isGuestMode, spendingTrendData]);
+  }, [spendingTrendData]);
 
   const insights = useMemo(() => {
-    if (isGuestMode) {
-      return [
-        {
-          title: 'Spending is stable across categories',
-          description:
-            'Your expenses are well-distributed. Consider optimizing subscriptions to increase monthly savings.',
-          variant: 'default' as const,
-        },
-        {
-          title: 'Savings rate improving',
-          description:
-            'Your savings have grown steadily over the last 6 months. Stay consistent to reach long-term goals.',
-          variant: 'success' as const,
-        },
-      ];
-    }
-
     if (!transactions.length) {
       return [
         {
-          title: 'Insights unavailable',
+          title: 'Start tracking your finances',
           description:
-            'Add transactions to unlock AI-powered spending analysis and reports.',
-          variant: 'accent' as const,
+            'Add your first transaction to see personalized insights and financial analysis.',
+          variant: 'default' as const,
         },
       ];
     }

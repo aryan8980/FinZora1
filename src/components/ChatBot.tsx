@@ -1,24 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Send, Bot } from 'lucide-react';
+import { sendChatMessage } from '@/services/api';
+import { Send, Bot, Loader2, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  subtext?: string;
 }
 
 export const ChatBot = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: 'Hi! I\'m your AI financial advisor. Ask me anything about your finances!',
+      content: "Hi! I'm your AI financial copilot.",
+      subtext: 'Ask me anything about your expenses, income, portfolio, or financial advice!',
     },
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const listRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (listRef.current) {
+      listRef.current.scrollTop = listRef.current.scrollHeight;
+    }
+  }, [messages]);
+
+  const pushMessage = (msg: Message) => setMessages((prev) => [...prev, msg]);
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -28,24 +40,37 @@ export const ChatBot = () => {
     setInput('');
     setIsLoading(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        'Based on your spending pattern, I suggest reducing food expenses by 10%.',
-        'Your savings rate is excellent! Consider investing in mutual funds.',
-        'You\'re overspending on entertainment this month. Try to cut back a bit.',
-        'Great job on staying within budget! Keep it up.',
-        'Consider setting up an emergency fund with 3-6 months of expenses.',
-      ];
+    try {
+      // Send message to AI backend
+      const result = await sendChatMessage(userMessage.content, true);
       
-      const aiMessage = {
-        role: 'assistant' as const,
-        content: responses[Math.floor(Math.random() * responses.length)],
-      };
-      
-      setMessages((prev) => [...prev, aiMessage]);
+      if (result.success) {
+        pushMessage({ 
+          role: 'assistant', 
+          content: result.response,
+          subtext: result.data_used ? '✓ Using your live financial data' : undefined
+        });
+      } else if (result.fallback) {
+        // AI not configured, show helpful message
+        pushMessage({
+          role: 'assistant',
+          content: 'AI Chat Not Configured',
+          subtext:
+            (result.message || '') +
+            ' Add a FREE Groq API key (set GROQ_API_KEY in .env) to enable cloud AI. You can also use a Hugging Face or Gemini key.'
+        });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error: any) {
+      pushMessage({
+        role: 'assistant',
+        content: 'Connection Error',
+        subtext: 'Unable to reach the backend. Please ensure the Flask server is running on port 5000.'
+      });
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -57,7 +82,7 @@ export const ChatBot = () => {
         </CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 overflow-auto p-4 space-y-4">
+      <CardContent ref={listRef} className="flex-1 overflow-auto p-4 space-y-4">
         <AnimatePresence mode="popLayout">
           {messages.map((message, index) => (
             <motion.div
@@ -75,6 +100,9 @@ export const ChatBot = () => {
                 }`}
               >
                 <p className="text-sm">{message.content}</p>
+                {message.subtext && (
+                  <p className="text-xs text-muted-foreground mt-1">{message.subtext}</p>
+                )}
               </div>
             </motion.div>
           ))}
@@ -86,12 +114,9 @@ export const ChatBot = () => {
             animate={{ opacity: 1 }}
             className="flex justify-start"
           >
-            <div className="bg-muted rounded-lg p-3">
-              <div className="flex gap-1">
-                <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-100" />
-                <div className="w-2 h-2 bg-primary rounded-full animate-bounce delay-200" />
-              </div>
+            <div className="bg-muted rounded-lg p-3 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Thinking with AI...
             </div>
           </motion.div>
         )}
@@ -100,15 +125,19 @@ export const ChatBot = () => {
       <div className="p-4 border-t">
         <div className="flex gap-2">
           <Input
-            placeholder="Ask me anything..."
+            placeholder="Ask me anything about your finances..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
           />
           <Button onClick={handleSend} disabled={isLoading}>
-            <Send className="h-4 w-4" />
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
+        <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
+          <Sparkles className="h-3 w-3" />
+          Powered by AI (Groq / HF / Gemini) • Uses your live financial data for personalized insights
+        </p>
       </div>
     </Card>
   );

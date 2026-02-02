@@ -34,7 +34,16 @@ export default function AddTransaction() {
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
-    // Auto-categorize based on title
+
+    // Auto-detect Income
+    const lower = value.toLowerCase();
+    if (lower.includes('salary') || lower.includes('paycheck') || lower.includes('dividend')) {
+      setType('income');
+      setCategory('Income');
+      return;
+    }
+
+    // Auto-categorize based on title for expenses
     if (value.length > 3) {
       const suggestedCategory = categorizeTransaction(value);
       setCategory(suggestedCategory);
@@ -47,7 +56,7 @@ export default function AddTransaction() {
       title: 'Saving transaction...',
       description: 'Please wait while we store your data.',
     });
-    
+
     if (!title || !amount || !date || !category) {
       toast({
         title: 'Missing fields',
@@ -98,7 +107,7 @@ export default function AddTransaction() {
 
     toast({
       title: 'Transaction Added!',
-       description: `Successfully added ${type} of ₹${amount}`,
+      description: `Successfully added ${type} of ₹${amount}`,
     });
 
     // Reset form
@@ -107,17 +116,17 @@ export default function AddTransaction() {
     setDate('');
     setCategory('');
     setDescription('');
-    
+
     setTimeout(() => navigate('/transactions'), 1000);
   };
 
   return (
     <div className="min-h-screen">
       <Navbar showProfile />
-      
+
       <div className="flex">
         <Sidebar />
-        
+
         <main className="flex-1 p-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -129,7 +138,7 @@ export default function AddTransaction() {
               <CardHeader>
                 <CardTitle className="text-2xl">Add New Transaction</CardTitle>
               </CardHeader>
-              
+
               <CardContent>
                 <form
                   onSubmit={(e) => {

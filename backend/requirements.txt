@@ -1,0 +1,7 @@
+Flask>=3.0.0
+flask-cors>=4.0.0
+firebase-admin==6.1.0
+requests==2.31.0
+python-dotenv==1.0.0
+google-generativeai
+gunicorn==21.2.0

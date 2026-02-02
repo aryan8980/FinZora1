@@ -1,0 +1,9 @@
+{
+  "users": {
+    "default_user": {
+      "income": [],
+      "expenses": [],
+      "stocks": []
+    }
+  }
+}

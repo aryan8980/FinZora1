@@ -9,6 +9,7 @@ import {
   MessageSquare,
   User,
   TrendingUp,
+  PiggyBank,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +19,7 @@ const menuItems = [
   { icon: PlusCircle, label: 'Add Expense', path: '/add-transaction' },
   { icon: BarChart3, label: 'Reports', path: '/reports' },
   { icon: Target, label: 'Goals', path: '/goals' },
+  { icon: PiggyBank, label: 'Budgets', path: '/budget' },
   { icon: TrendingUp, label: 'Investments', path: '/investments' },
   { icon: ArrowRightLeft, label: 'Currency', path: '/currency' },
   { icon: MessageSquare, label: 'AI Assistant', path: '/chat' },

@@ -10,12 +10,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { disableGuestSession } from '@/hooks/use-guest-mode';
+import { setDoc, doc } from 'firebase/firestore';
 
 export default function Signup() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -25,7 +27,7 @@ export default function Signup() {
   const handleSignup = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    if (!fullName || !email || !password || !confirmPassword) {
+    if (!fullName || !email || !phone || !password || !confirmPassword) {
       toast({
         title: 'Missing information',
         description: 'Please complete all fields.',
@@ -58,6 +60,12 @@ export default function Signup() {
 
       if (credentials.user && fullName) {
         await updateProfile(credentials.user, { displayName: fullName });
+        
+        // Store phone number in Firestore
+        await setDoc(doc(db, 'users', credentials.user.uid), {
+          phone: phone,
+          createdAt: new Date(),
+        });
       }
 
       disableGuestSession();
@@ -126,6 +134,18 @@ export default function Signup() {
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    className="bg-background"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="+1 (555) 123-4567"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
                     className="bg-background"
                   />
                 </div>

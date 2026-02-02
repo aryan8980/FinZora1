@@ -8,8 +8,8 @@ import { Navbar } from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { auth, googleProvider } from '@/lib/firebase';
 import { disableGuestSession, enableGuestSession } from '@/hooks/use-guest-mode';
 
 export default function Login() {
@@ -55,6 +55,28 @@ export default function Login() {
   const handleGuestLogin = () => {
     enableGuestSession();
     navigate('/dashboard');
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setIsLoading(true);
+      await signInWithPopup(auth, googleProvider);
+      disableGuestSession();
+      toast({
+        title: 'Logged in with Google',
+        description: 'Welcome back to FinZora',
+      });
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Google login error', error);
+      toast({
+        title: 'Google sign-in failed',
+        description: (error as { message?: string }).message ?? 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -121,14 +143,27 @@ export default function Login() {
                 </div>
               </div>
 
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full"
-                onClick={handleGuestLogin}
-              >
-                Continue as Guest
-              </Button>
+              <div className="space-y-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={handleGoogleLogin}
+                  disabled={isLoading}
+                >
+                  Sign in with Google
+                </Button>
+
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={handleGuestLogin}
+                  disabled={isLoading}
+                >
+                  Continue as Guest
+                </Button>
+              </div>
 
               <p className="text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}

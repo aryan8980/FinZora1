@@ -23,8 +23,6 @@ import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from '
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { loadUserTransactions, saveUserTransactions } from '@/utils/transactionsStorage';
 
-const buildGuestTransactions = () => dummyTransactions.map((transaction) => ({ ...transaction }));
-
 export default function Transactions() {
   const [search, setSearch] = useState('');
   const isGuestMode = useGuestMode();
@@ -43,7 +41,7 @@ export default function Transactions() {
   useEffect(() => {
     if (isGuestMode) {
       const localTransactions = loadUserTransactions();
-      setTransactions([...buildGuestTransactions(), ...localTransactions]);
+      setTransactions(localTransactions);
       return;
     }
 

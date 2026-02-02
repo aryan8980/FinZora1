@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
@@ -11,30 +11,155 @@ import { User, Mail, Phone, MapPin, Edit } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { auth, db } from '@/lib/firebase';
+import { onAuthStateChanged, signOut, updateProfile, type User as FirebaseUser } from 'firebase/auth';
+import { disableGuestSession } from '@/hooks/use-guest-mode';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function Profile() {
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState('John Doe');
-  const [email, setEmail] = useState('john.doe@example.com');
-  const [phone, setPhone] = useState('+91 98765 43210');
-  const [location, setLocation] = useState('Mumbai, India');
+  const [isSaving, setIsSaving] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [location, setLocation] = useState('');
+  const [user, setUser] = useState<FirebaseUser | null>(() => auth.currentUser);
+  const [totalTransactions, setTotalTransactions] = useState(0);
+  const [daysActive, setDaysActive] = useState(0);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const handleSave = () => {
-    setIsEditing(false);
-    toast({
-      title: 'Profile Updated',
-      description: 'Your profile has been successfully updated',
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+
+      if (firebaseUser) {
+        setName(firebaseUser.displayName || 'User');
+        setEmail(firebaseUser.email || '');
+        
+        // Calculate days active
+        const createdAt = firebaseUser.metadata?.creationTime;
+        if (createdAt) {
+          const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+          setDaysActive(Math.max(0, days));
+        }
+        
+        // Fetch phone number and location from Firestore
+        try {
+          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setPhone(data?.phone || '');
+            setLocation(data?.location || '');
+          }
+        } catch (error) {
+          console.log('Error fetching user data:', error);
+        }
+
+        // Fetch total transactions count
+        try {
+          const transactionsSnapshot = await getDocs(
+            collection(db, 'users', firebaseUser.uid, 'transactions')
+          );
+          setTotalTransactions(transactionsSnapshot.size);
+        } catch (error) {
+          console.log('Error fetching transactions count:', error);
+        }
+      }
     });
+
+    // Initialize from current user immediately if present
+    const current = auth.currentUser;
+    if (current) {
+      setUser(current);
+      setName(current.displayName || 'User');
+      setEmail(current.email || '');
+      
+      // Calculate days active
+      const createdAt = current.metadata?.creationTime;
+      if (createdAt) {
+        const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+        setDaysActive(Math.max(0, days));
+      }
+      
+      // Fetch phone number and location from Firestore
+      (async () => {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', current.uid));
+          if (userDoc.exists()) {
+            const data = userDoc.data();
+            setPhone(data?.phone || '');
+            setLocation(data?.location || '');
+          }
+        } catch (error) {
+          console.log('Error fetching user data:', error);
+        }
+
+        try {
+          const transactionsSnapshot = await getDocs(
+            collection(db, 'users', current.uid, 'transactions')
+          );
+          setTotalTransactions(transactionsSnapshot.size);
+        } catch (error) {
+          console.log('Error fetching transactions count:', error);
+        }
+      })();
+    }
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+    try {
+      // Update name in Firebase Auth
+      await updateProfile(user, { displayName: name });
+
+      // Save all fields to Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        displayName: name,
+        email: email,
+        phone: phone,
+        location: location,
+        updatedAt: new Date(),
+      }, { merge: true });
+
+      setIsEditing(false);
+      toast({
+        title: 'Profile Updated',
+        description: 'Your profile has been successfully saved to the database',
+      });
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      toast({
+        title: 'Failed to update profile',
+        description: 'Something went wrong while saving your changes. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleLogout = () => {
-    toast({
-      title: 'Logged Out',
-      description: 'You have been successfully logged out',
-    });
-    setTimeout(() => navigate('/login'), 1000);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      disableGuestSession();
+      toast({
+        title: 'Logged Out',
+        description: 'You have been successfully logged out',
+      });
+      setTimeout(() => navigate('/login'), 1000);
+    } catch (error) {
+      console.error('Error during logout', error);
+      toast({
+        title: 'Logout failed',
+        description: 'Something went wrong while logging you out. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
@@ -146,9 +271,19 @@ export default function Profile() {
                 </div>
 
                 {isEditing && (
-                  <Button onClick={handleSave} className="w-full gradient-primary">
-                    Save Changes
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button onClick={handleSave} className="flex-1 gradient-primary" disabled={isSaving}>
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setIsEditing(false)} 
+                      className="flex-1"
+                      disabled={isSaving}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -189,15 +324,15 @@ export default function Profile() {
               <CardContent>
                 <div className="grid md:grid-cols-3 gap-4">
                   <div className="p-4 bg-accent rounded-lg text-center">
-                    <p className="text-2xl font-bold">127</p>
+                    <p className="text-2xl font-bold">{totalTransactions}</p>
                     <p className="text-sm text-muted-foreground">Total Transactions</p>
                   </div>
                   <div className="p-4 bg-accent rounded-lg text-center">
-                    <p className="text-2xl font-bold">3</p>
+                    <p className="text-2xl font-bold">-</p>
                     <p className="text-sm text-muted-foreground">Active Goals</p>
                   </div>
                   <div className="p-4 bg-accent rounded-lg text-center">
-                    <p className="text-2xl font-bold">45</p>
+                    <p className="text-2xl font-bold">{daysActive}</p>
                     <p className="text-sm text-muted-foreground">Days Active</p>
                   </div>
                 </div>

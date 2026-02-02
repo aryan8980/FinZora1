@@ -1,0 +1,234 @@
+/**
+ * API Service Layer - Frontend
+ * Purpose: Handle all HTTP requests to Flask backend
+ * Provides: Typed methods for income, expense, and stock operations
+ */
+
+const API_BASE_URL = 'http://localhost:5000/api';
+
+// ============================================================================
+// INCOME API
+// ============================================================================
+
+/**
+ * Add income to user account
+ * @param amount - Income amount
+ * @param source - Source of income
+ * @param description - Optional description
+ * @param date - Transaction date (ISO format)
+ */
+export const addIncome = async (
+  amount: number,
+  source: string,
+  description: string = '',
+  date: string = new Date().toISOString()
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/income/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, source, description, date })
+    });
+
+    if (!response.ok) throw new Error('Failed to add income');
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding income:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch all income records
+ */
+export const getIncomeList = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/income/list`);
+    if (!response.ok) throw new Error('Failed to fetch income');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching income:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// EXPENSE API
+// ============================================================================
+
+/**
+ * Add expense with automatic AI categorization
+ * @param amount - Expense amount
+ * @param merchant - Merchant/vendor name
+ * @param description - Optional description
+ * @param date - Transaction date (ISO format)
+ */
+export const addExpense = async (
+  amount: number,
+  merchant: string,
+  description: string = '',
+  date: string = new Date().toISOString()
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/expense/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount, merchant, description, date })
+    });
+
+    if (!response.ok) throw new Error('Failed to add expense');
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding expense:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch expenses with optional category filter
+ * @param category - Optional category to filter by
+ */
+export const getExpenseList = async (category?: string) => {
+  try {
+    const url = new URL(`${API_BASE_URL}/expense/list`);
+    if (category) url.searchParams.append('category', category);
+
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch expenses');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching expenses:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get expense statistics by category
+ */
+export const getExpenseStats = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/expense/statistics`);
+    if (!response.ok) throw new Error('Failed to fetch statistics');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching statistics:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// STOCK PORTFOLIO API
+// ============================================================================
+
+/**
+ * Add stock to portfolio
+ * @param symbol - Stock symbol (e.g., 'AAPL')
+ * @param quantity - Number of shares
+ * @param buyPrice - Purchase price per share
+ * @param date - Purchase date (ISO format)
+ */
+export const addStock = async (
+  symbol: string,
+  quantity: number,
+  buyPrice: number,
+  date: string = new Date().toISOString()
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, quantity, buy_price: buyPrice, date })
+    });
+
+    if (!response.ok) throw new Error('Failed to add stock');
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding stock:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch user's stock portfolio
+ */
+export const getStockPortfolio = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/list`);
+    if (!response.ok) throw new Error('Failed to fetch portfolio');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching portfolio:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update live prices for all stocks
+ */
+export const updateStockPrices = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/update-prices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error('Failed to update prices');
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating prices:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// ERROR HANDLING UTILITY
+// ============================================================================
+
+export const handleApiError = (error: any): string => {
+  if (error instanceof TypeError) {
+    return 'Network error. Please check your connection.';
+  }
+  return error?.message || 'An error occurred. Please try again.';
+};
+
+// ============================================================================
+// AI CHAT API
+// ============================================================================
+
+/**
+ * Send message to AI chatbot
+ * @param message - User's message
+ * @param includeContext - Whether to include user's financial data
+ */
+export const sendChatMessage = async (
+  message: string,
+  includeContext: boolean = true
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, include_context: includeContext })
+    });
+
+    if (!response.ok) throw new Error('Failed to send chat message');
+    return await response.json();
+  } catch (error) {
+    console.error('Error sending chat message:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get suggested chat prompts
+ */
+export const getChatPrompts = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/chat/prompts`);
+    if (!response.ok) throw new Error('Failed to fetch prompts');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching prompts:', error);
+    throw error;
+  }
+};

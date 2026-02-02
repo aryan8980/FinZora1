@@ -18,6 +18,7 @@ import Investments from "./pages/Investments";
 import CurrencyConverter from "./pages/CurrencyConverter";
 import ChatAssistant from "./pages/ChatAssistant";
 import Profile from "./pages/Profile";
+import BudgetPage from "./pages/Budget";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,7 +33,7 @@ const App = () => {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/login" element={<Login />} />
@@ -42,6 +43,7 @@ const App = () => {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/goals" element={<Goals />} />
+            <Route path="/budget" element={<BudgetPage />} />
             <Route path="/investments" element={<Investments />} />
             <Route path="/currency" element={<CurrencyConverter />} />
             <Route path="/chat" element={<ChatAssistant />} />

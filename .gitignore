@@ -1,3 +1,39 @@
+# ============================================================================
+# PYTHON BACKEND IGNORES
+# ============================================================================
+
+# Virtual environments
+backend/venv/
+backend/env/
+backend/.venv/
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution
+*.egg-info/
+dist/
+build/
+
+# Flask
+instance/
+.webassets-cache
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ============================================================================
+# FRONTEND IGNORES
+# ============================================================================
+
 # Logs
 logs
 *.log
@@ -12,9 +48,34 @@ dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Dependencies
+package-lock.json
+yarn.lock
+
+# ============================================================================
+# SECURITY - DO NOT COMMIT
+# ============================================================================
+
+# Firebase credentials (NEVER commit!)
+credentials.json
+serviceAccountKey.json
+firebase-key.json
+backend/credentials.json
+
+# API Keys and Environment
+.env
+.env.local
+.env.*.local
+
+# ============================================================================
+# EDITOR & IDE
+# ============================================================================
+
+# VS Code
 .vscode/*
 !.vscode/extensions.json
+
+# IDE
 .idea
 .DS_Store
 *.suo
@@ -22,3 +83,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
+*~
+
+# ============================================================================
+# OS FILES
+# ============================================================================
+
+.DS_Store
+Thumbs.db
+
+# ============================================================================
+# TEMPORARY FILES
+# ============================================================================
+
+temp/
+tmp/
+*.tmp
+.cache/
