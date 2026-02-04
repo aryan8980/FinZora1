@@ -154,7 +154,7 @@ export default function CurrencyConverter() {
                     className="p-6 bg-gradient-primary rounded-lg text-center"
                   >
                     <p className="text-sm text-primary-foreground/80 mb-2">Converted Amount</p>
-                    <p className="text-4xl font-bold text-primary-foreground">
+                    <p className="text-4xl font-bold text-black">
                       {currencies.find((c) => c.code === toCurrency)?.symbol}
                       {result.toFixed(2)}
                     </p>
