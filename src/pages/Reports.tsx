@@ -142,6 +142,212 @@ export default function Reports() {
     }));
   }, [spendingTrendData]);
 
+  const handleExportPDF = async () => {
+    try {
+      // Dynamically import html2pdf
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      // Create a temporary container with the report content
+      const element = document.createElement('div');
+      element.style.padding = '20px';
+      element.style.fontFamily = 'Arial, sans-serif';
+      element.style.backgroundColor = '#ffffff';
+      element.style.color = '#000000';
+
+      // Add report title
+      const title = document.createElement('h1');
+      title.textContent = 'Financial Reports';
+      title.style.marginBottom = '20px';
+      title.style.borderBottom = '2px solid #000';
+      title.style.paddingBottom = '10px';
+      element.appendChild(title);
+
+      // Add generated date
+      const dateP = document.createElement('p');
+      dateP.textContent = `Generated on: ${new Date().toLocaleDateString()}`;
+      dateP.style.marginBottom = '20px';
+      dateP.style.color = '#666';
+      element.appendChild(dateP);
+
+      // Add summary section
+      const summarySection = document.createElement('div');
+      summarySection.style.marginBottom = '30px';
+
+      const summaryTitle = document.createElement('h2');
+      summaryTitle.textContent = 'Summary';
+      summaryTitle.style.marginBottom = '10px';
+      summarySection.appendChild(summaryTitle);
+
+      const totalIncome = transactions
+        .filter((t) => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const totalExpense = transactions
+        .filter((t) => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const netBalance = totalIncome - totalExpense;
+
+      const summaryTable = document.createElement('table');
+      summaryTable.style.width = '100%';
+      summaryTable.style.borderCollapse = 'collapse';
+      summaryTable.style.marginBottom = '20px';
+
+      const summaryData = [
+        { label: 'Total Income', value: `₹${totalIncome.toLocaleString()}` },
+        { label: 'Total Expenses', value: `₹${totalExpense.toLocaleString()}` },
+        { label: 'Net Balance', value: `₹${netBalance.toLocaleString()}` },
+      ];
+
+      summaryData.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #ddd';
+
+        const td1 = document.createElement('td');
+        td1.textContent = row.label;
+        td1.style.padding = '8px';
+        td1.style.fontWeight = 'bold';
+
+        const td2 = document.createElement('td');
+        td2.textContent = row.value;
+        td2.style.padding = '8px';
+        td2.style.textAlign = 'right';
+
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        summaryTable.appendChild(tr);
+      });
+
+      summarySection.appendChild(summaryTable);
+      element.appendChild(summarySection);
+
+      // Add category breakdown
+      if (categoryChartData.length) {
+        const categorySection = document.createElement('div');
+        categorySection.style.marginBottom = '30px';
+
+        const categoryTitle = document.createElement('h2');
+        categoryTitle.textContent = 'Category Breakdown';
+        categoryTitle.style.marginBottom = '10px';
+        categorySection.appendChild(categoryTitle);
+
+        const categoryTable = document.createElement('table');
+        categoryTable.style.width = '100%';
+        categoryTable.style.borderCollapse = 'collapse';
+
+        const headerRow = document.createElement('tr');
+        headerRow.style.backgroundColor = '#f0f0f0';
+        headerRow.style.borderBottom = '2px solid #000';
+
+        const headers = ['Category', 'Amount'];
+        headers.forEach((header) => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          th.style.padding = '8px';
+          th.style.textAlign = 'left';
+          headerRow.appendChild(th);
+        });
+        categoryTable.appendChild(headerRow);
+
+        categoryChartData.forEach((cat) => {
+          const tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid #ddd';
+
+          const td1 = document.createElement('td');
+          td1.textContent = cat.name;
+          td1.style.padding = '8px';
+
+          const td2 = document.createElement('td');
+          td2.textContent = `₹${cat.value.toLocaleString()}`;
+          td2.style.padding = '8px';
+          td2.style.textAlign = 'right';
+
+          tr.appendChild(td1);
+          tr.appendChild(td2);
+          categoryTable.appendChild(tr);
+        });
+
+        categorySection.appendChild(categoryTable);
+        element.appendChild(categorySection);
+      }
+
+      // Add monthly trend data
+      if (spendingTrendData.length) {
+        const trendSection = document.createElement('div');
+        trendSection.style.marginBottom = '30px';
+
+        const trendTitle = document.createElement('h2');
+        trendTitle.textContent = 'Monthly Spending Trend';
+        trendTitle.style.marginBottom = '10px';
+        trendSection.appendChild(trendTitle);
+
+        const trendTable = document.createElement('table');
+        trendTable.style.width = '100%';
+        trendTable.style.borderCollapse = 'collapse';
+
+        const headerRow = document.createElement('tr');
+        headerRow.style.backgroundColor = '#f0f0f0';
+        headerRow.style.borderBottom = '2px solid #000';
+
+        const headers = ['Month', 'Income', 'Expense', 'Net'];
+        headers.forEach((header) => {
+          const th = document.createElement('th');
+          th.textContent = header;
+          th.style.padding = '8px';
+          th.style.textAlign = 'right';
+          headerRow.appendChild(th);
+        });
+        trendTable.appendChild(headerRow);
+
+        spendingTrendData.forEach((row) => {
+          const tr = document.createElement('tr');
+          tr.style.borderBottom = '1px solid #ddd';
+
+          const td1 = document.createElement('td');
+          td1.textContent = row.month;
+          td1.style.padding = '8px';
+          td1.style.textAlign = 'left';
+
+          const td2 = document.createElement('td');
+          td2.textContent = `₹${row.income.toLocaleString()}`;
+          td2.style.padding = '8px';
+          td2.style.textAlign = 'right';
+
+          const td3 = document.createElement('td');
+          td3.textContent = `₹${row.expense.toLocaleString()}`;
+          td3.style.padding = '8px';
+          td3.style.textAlign = 'right';
+
+          const td4 = document.createElement('td');
+          td4.textContent = `₹${(row.income - row.expense).toLocaleString()}`;
+          td4.style.padding = '8px';
+          td4.style.textAlign = 'right';
+
+          tr.appendChild(td1);
+          tr.appendChild(td2);
+          tr.appendChild(td3);
+          tr.appendChild(td4);
+          trendTable.appendChild(tr);
+        });
+
+        trendSection.appendChild(trendTable);
+        element.appendChild(trendSection);
+      }
+
+      // Generate PDF
+      const opt = {
+        margin: 10,
+        filename: `FinZora-Report-${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+      };
+
+      html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
+  };
+
   const insights = useMemo(() => {
     if (!transactions.length) {
       return [
@@ -189,7 +395,7 @@ export default function Reports() {
             className="flex justify-between items-center"
           >
             <h1 className="text-3xl font-bold">Financial Reports</h1>
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExportPDF}>
               <Download className="h-4 w-4 mr-2" />
               Export PDF
             </Button>
