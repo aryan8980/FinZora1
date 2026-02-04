@@ -214,6 +214,8 @@ export default function AddTransaction() {
                           <SelectItem value="Health">Health</SelectItem>
                           <SelectItem value="Education">Education</SelectItem>
                           <SelectItem value="Income">Income</SelectItem>
+                          <SelectItem value="Friends">Friends</SelectItem>
+                          <SelectItem value="Family">Family</SelectItem>
                           <SelectItem value="Other">Other</SelectItem>
                         </SelectContent>
                       </Select>
