@@ -52,7 +52,7 @@ export default function BudgetPage() {
     });
 
     // Fetch Actual Spending
-    const { data: spending = {}, isLoading: isSpendingLoading } = useQuery({
+    const { data: spending = {}, isLoading: isSpendingLoading, refetch: refetchSpending } = useQuery({
         queryKey: ['expense-stats'],
         queryFn: async () => {
             try {
@@ -66,7 +66,8 @@ export default function BudgetPage() {
             }
         },
         retry: 2,
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0, // Always consider data stale to ensure fresh data
+        refetchInterval: 5000, // Refetch every 5 seconds
     });
 
     // Set Budget Mutation
@@ -82,6 +83,7 @@ export default function BudgetPage() {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['budgets'] });
+            queryClient.invalidateQueries({ queryKey: ['expense-stats'] });
             toast({ title: 'Success', description: 'Budget limit updated!' });
             setLimit('');
             setSelectedCategory('');

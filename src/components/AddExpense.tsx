@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useBudgetInvalidation } from '@/hooks/use-budget-invalidation';
 
 interface FormData {
   amount: string;
@@ -24,6 +25,8 @@ interface FormErrors {
 }
 
 const AddExpense: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
+  const { invalidateBudgetQueries } = useBudgetInvalidation();
+  
   // Form state
   const [formData, setFormData] = useState<FormData>({
     amount: '',
@@ -190,6 +193,9 @@ const AddExpense: React.FC<{ onSuccess?: () => void }> = ({ onSuccess }) => {
         setSuccessMessage(
           `Expense added successfully! Category: ${response.category}`
         );
+
+        // Invalidate budget queries to update spending stats
+        invalidateBudgetQueries();
 
         // Call callback if provided
         if (onSuccess) onSuccess();
