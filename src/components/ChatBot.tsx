@@ -134,10 +134,6 @@ export const ChatBot = () => {
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </div>
-        <p className="text-[11px] text-muted-foreground mt-2 flex items-center gap-1">
-          <Sparkles className="h-3 w-3" />
-          Powered by AI (Groq / HF / Gemini) • Uses your live financial data for personalized insights
-        </p>
       </div>
     </Card>
   );
