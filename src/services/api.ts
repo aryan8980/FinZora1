@@ -4,7 +4,8 @@
  * Provides: Typed methods for income, expense, and stock operations
  */
 
-const API_BASE_URL = 'http://localhost:5000/api';
+// Use environment variable or default to localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // ============================================================================
 // INCOME API

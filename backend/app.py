@@ -22,7 +22,8 @@ load_dotenv()
 
 # Initialize Flask application
 app = Flask(__name__)
-CORS(app)
+# Enable CORS for all origins (restrict in production if needed)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
 # Initialize services
 firebase_service = FirebaseService()
@@ -550,11 +551,15 @@ def internal_error(error):
 
 
 if __name__ == '__main__':
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('FLASK_ENV', 'production') == 'development'
+    
     print("\n" + "="*70)
     print("🚀 FinZora Backend Started Successfully!")
     print("="*70)
-    print("📡 API Server: http://localhost:5000")
+    print(f"📡 API Server: http://0.0.0.0:{port}")
     print("   Stock API: Alpha Vantage (configured)" if os.getenv('ALPHA_VANTAGE_API_KEY') != 'demo' else "   Stock API: Demo mode (configure API key in .env)")
     print("   Firebase: " + ("configured" if os.path.exists('credentials.json') else "missing credentials.json"))
     print("="*70 + "\n")
-    app.run(debug=False, port=5000, host='127.0.0.1')
+    
+    app.run(debug=debug, port=port, host='0.0.0.0')
