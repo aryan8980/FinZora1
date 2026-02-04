@@ -1,7 +1,10 @@
-Flask>=3.0.0
-flask-cors>=4.0.0
+Flask==3.0.0
+flask-cors==4.0.0
 firebase-admin==6.1.0
 requests==2.31.0
 python-dotenv==1.0.0
-google-generativeai
+google-generativeai==0.3.0
 gunicorn==21.2.0
+Werkzeug==3.0.0
+click==8.1.7
+itsdangerous==2.1.2
