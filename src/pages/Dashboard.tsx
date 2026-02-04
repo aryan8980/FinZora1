@@ -12,6 +12,7 @@ import { auth, db } from '@/lib/firebase';
 import { collection, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { loadUserTransactions } from '@/utils/transactionsStorage';
+import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 
 const ChartEmptyState = ({ message }: { message: string }) => (
   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const isGuestSession = useGuestMode();
   const [user, setUser] = useState<User | null>(() => auth.currentUser);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -33,13 +35,19 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    setIsLoading(true);
+
     if (isGuestSession) {
       const local = loadUserTransactions();
       setTransactions([...local]);
+      setTimeout(() => setIsLoading(false), 500);
       return;
     }
 
     if (!user) {
+      if (!auth.currentUser) {
+        setIsLoading(false);
+      }
       setTransactions(loadUserTransactions());
       return;
     }
@@ -66,6 +74,7 @@ export default function Dashboard() {
         };
       });
       setTransactions(docs);
+      setIsLoading(false);
     });
 
     return () => unsubscribe();
@@ -177,6 +186,20 @@ export default function Dashboard() {
       'Once you start logging transactions, FinZora AI will surface personalized insights here.',
       'Connect your accounts or add expenses to unlock smarter recommendations.',
     ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen">
+        <Navbar showProfile />
+        <div className="flex">
+          <Sidebar />
+          <main className="flex-1 p-6 space-y-6">
+            <DashboardSkeleton />
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">

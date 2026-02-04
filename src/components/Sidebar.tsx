@@ -28,7 +28,7 @@ const menuItems = [
 
 export const Sidebar = () => {
   return (
-    <aside className="w-64 border-r bg-card min-h-[calc(100vh-4rem)] p-4">
+    <aside className="w-64 border-r bg-card/80 backdrop-blur-md min-h-[calc(100vh-4rem)] p-4 shadow-xl z-20">
       <nav className="space-y-2">
         {menuItems.map((item) => (
           <NavLink
@@ -36,16 +36,23 @@ export const Sidebar = () => {
             to={item.path}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
-                'hover:bg-accent hover:text-accent-foreground',
+                'group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-in-out',
+                'hover:bg-accent/50 hover:translate-x-1',
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-glass'
-                  : 'text-muted-foreground'
+                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/25 relative overflow-hidden'
+                  : 'text-muted-foreground hover:text-foreground'
               )
             }
           >
-            <item.icon className="h-5 w-5" />
-            <span className="font-medium">{item.label}</span>
+            {({ isActive }) => (
+              <>
+                {isActive && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-20" />
+                )}
+                <item.icon className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", isActive ? "animate-pulse-subtle" : "")} />
+                <span className="font-medium">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

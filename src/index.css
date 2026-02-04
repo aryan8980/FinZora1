@@ -17,19 +17,22 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%;
+    /* ROYAL TRUST BLUE */
+    --primary: 215 85% 35%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 270 67% 47%;
+    /* WEALTH GOLD */
+    --secondary: 40 80% 50%;
     --secondary-foreground: 0 0% 100%;
 
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 217 91% 95%;
-    --accent-foreground: 217 91% 35%;
+    --accent: 215 85% 95%;
+    --accent-foreground: 215 85% 35%;
 
-    --success: 142 71% 45%;
+    /* DEEP EMERALD */
+    --success: 150 90% 35%;
     --success-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
@@ -37,52 +40,57 @@ All colors MUST be HSL.
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --ring: 215 85% 35%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(270 67% 47%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(217 91% 95%) 0%, hsl(270 67% 95%) 100%);
-    --shadow-glass: 0 8px 32px 0 hsla(217, 91%, 60%, 0.15);
-    --shadow-glow: 0 0 40px hsla(217, 91%, 60%, 0.3);
+    --gradient-primary: linear-gradient(135deg, hsl(215 85% 35%) 0%, hsl(220 80% 25%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215 85% 97%) 0%, hsl(40 80% 95%) 100%);
+    --shadow-glass: 0 8px 32px 0 hsla(215, 85%, 35%, 0.10);
+    --shadow-glow: 0 0 40px hsla(40, 80%, 50%, 0.2);
+    /* New Subtle Background Pattern Var */
+    --bg-pattern: radial-gradient(circle at 50% 50%, hsla(215, 85%, 35%, 0.03) 0%, transparent 50%), radial-gradient(circle at 100% 0%, hsla(40, 80%, 50%, 0.05) 0%, transparent 30%);
   }
 
   .dark {
-    --background: 222 47% 6%;
+    --background: 220 40% 10%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 9%;
+    --card: 220 40% 13%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222 47% 9%;
+    --popover: 220 40% 13%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 6%;
+    /* ROYAL TRUST BLUE (Lighter for Dark Mode) */
+    --primary: 215 85% 45%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 270 67% 57%;
-    --secondary-foreground: 222 47% 6%;
+    /* WEALTH GOLD */
+    --secondary: 40 80% 50%;
+    --secondary-foreground: 220 40% 10%;
 
-    --muted: 217 33% 17%;
+    --muted: 215 30% 20%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 91% 25%;
-    --accent-foreground: 217 91% 90%;
+    --accent: 215 85% 20%;
+    --accent-foreground: 215 85% 90%;
 
-    --success: 142 71% 45%;
+    --success: 150 90% 45%;
     --success-foreground: 0 0% 100%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 217 91% 60%;
+    --border: 215 30% 20%;
+    --input: 215 30% 20%;
+    --ring: 215 85% 45%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(270 67% 57%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 9%) 0%, hsl(270 67% 15%) 100%);
-    --shadow-glass: 0 8px 32px 0 hsla(217, 91%, 60%, 0.25);
-    --shadow-glow: 0 0 50px hsla(217, 91%, 60%, 0.4);
+    --gradient-primary: linear-gradient(135deg, hsl(215 85% 45%) 0%, hsl(40 80% 50%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(220 40% 13%) 0%, hsl(220 40% 20%) 100%);
+    --shadow-glass: 0 8px 32px 0 hsla(215, 85%, 45%, 0.15);
+    --shadow-glow: 0 0 50px hsla(40, 80%, 50%, 0.25);
+    --bg-pattern: radial-gradient(circle at 50% 50%, hsla(215, 85%, 45%, 0.05) 0%, transparent 50%), radial-gradient(circle at 100% 0%, hsla(40, 80%, 50%, 0.08) 0%, transparent 30%);
   }
 }
 
@@ -93,6 +101,8 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    background-image: var(--bg-pattern);
+    background-attachment: fixed;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
@@ -115,8 +125,16 @@ All colors MUST be HSL.
   }
 
   .glass-card {
-    background: hsla(var(--card), 0.7);
-    backdrop-filter: blur(12px);
-    border: 1px solid hsla(var(--border), 0.5);
+    background: hsla(var(--card), 0.65);
+    backdrop-filter: blur(16px) saturate(180%);
+    border: 1px solid hsla(var(--border), 0.4);
+    box-shadow: var(--shadow-glass);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px 0 hsla(215, 85%, 35%, 0.15);
+    border-color: hsla(var(--primary), 0.3);
   }
 }
