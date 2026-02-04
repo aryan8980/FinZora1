@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
@@ -25,8 +25,8 @@ const currencies = [
   { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
 ];
 
-// Placeholder exchange rates (relative to INR)
-const exchangeRates: Record<string, number> = {
+// Fallback rates in case API fails
+const fallbackRates: Record<string, number> = {
   INR: 1,
   USD: 0.012,
   EUR: 0.011,
@@ -41,6 +41,52 @@ export default function CurrencyConverter() {
   const [fromCurrency, setFromCurrency] = useState('INR');
   const [toCurrency, setToCurrency] = useState('USD');
   const [result, setResult] = useState<number | null>(null);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>(fallbackRates);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch real exchange rates from API
+  useEffect(() => {
+    const fetchExchangeRates = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // Use exchangerate-api.com free tier (no key required)
+        const response = await fetch('https://api.exchangerate-api.com/v4/latest/INR');
+        
+        if (!response.ok) throw new Error('Failed to fetch rates');
+        
+        const data = await response.json();
+        const rates = data.rates;
+        
+        // Ensure all our currencies are in the rates
+        const completeRates: Record<string, number> = {
+          INR: 1,
+          USD: rates.USD || fallbackRates.USD,
+          EUR: rates.EUR || fallbackRates.EUR,
+          GBP: rates.GBP || fallbackRates.GBP,
+          JPY: rates.JPY || fallbackRates.JPY,
+          AUD: rates.AUD || fallbackRates.AUD,
+          CAD: rates.CAD || fallbackRates.CAD,
+        };
+        
+        setExchangeRates(completeRates);
+      } catch (err) {
+        console.error('Error fetching exchange rates:', err);
+        setError('Using fallback rates');
+        setExchangeRates(fallbackRates);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchExchangeRates();
+    
+    // Refresh rates every 30 minutes
+    const interval = setInterval(fetchExchangeRates, 30 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleConvert = () => {
     const amountNum = parseFloat(amount);
@@ -163,7 +209,9 @@ export default function CurrencyConverter() {
 
                 <div className="p-4 bg-muted/50 rounded-lg">
                   <p className="text-sm text-muted-foreground text-center">
-                    💡 Exchange rates are updated daily. Actual rates may vary.
+                    💡 Exchange rates updated in real-time from exchangerate-api.com
+                    {loading && ' (loading...)'}
+                    {error && ` (${error})`}
                   </p>
                 </div>
               </CardContent>
