@@ -16,6 +16,8 @@ const EXPENSE_CATEGORIES = [
     'Food', 'Transport', 'Shopping', 'Entertainment', 'Utilities', 'Healthcare', 'Education', 'Other'
 ];
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 interface Budget {
     category: string;
     limit: number;
@@ -32,47 +34,69 @@ export default function BudgetPage() {
     const [limit, setLimit] = useState<string>('');
 
     // Fetch Budgets
-    const { data: budgets = [] } = useQuery({
+    const { data: budgets = [], isLoading: isBudgetsLoading, error: budgetsError } = useQuery({
         queryKey: ['budgets'],
         queryFn: async () => {
-            const res = await fetch('http://localhost:5000/api/budget/list');
-            const data = await res.json();
-            return data.success ? data.data : [];
-        }
+            try {
+                const res = await fetch(`${API_BASE_URL}/budget/list`);
+                if (!res.ok) throw new Error('Failed to fetch budgets');
+                const data = await res.json();
+                return data.success ? data.data : [];
+            } catch (error) {
+                console.error('Error fetching budgets:', error);
+                return [];
+            }
+        },
+        retry: 2,
+        staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
     // Fetch Actual Spending
-    const { data: spending = {} } = useQuery({
+    const { data: spending = {}, isLoading: isSpendingLoading } = useQuery({
         queryKey: ['expense-stats'],
         queryFn: async () => {
-            const res = await fetch('http://localhost:5000/api/expense/statistics');
-            const data = await res.json();
-            return data.success ? data.data : {};
-        }
+            try {
+                const res = await fetch(`${API_BASE_URL}/expense/statistics`);
+                if (!res.ok) throw new Error('Failed to fetch spending stats');
+                const data = await res.json();
+                return data.success ? data.data : {};
+            } catch (error) {
+                console.error('Error fetching spending stats:', error);
+                return {};
+            }
+        },
+        retry: 2,
+        staleTime: 5 * 60 * 1000, // 5 minutes
     });
 
     // Set Budget Mutation
     const mutation = useMutation({
         mutationFn: async (newBudget: { category: string, limit: number }) => {
-            const res = await fetch('http://localhost:5000/api/budget/set', {
+            const res = await fetch(`${API_BASE_URL}/budget/set`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newBudget),
             });
+            if (!res.ok) throw new Error('Failed to set budget');
             return res.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['budgets'] });
             toast({ title: 'Success', description: 'Budget limit updated!' });
             setLimit('');
+            setSelectedCategory('');
         },
-        onError: () => {
+        onError: (error) => {
+            console.error('Budget error:', error);
             toast({ title: 'Error', description: 'Failed to update budget', variant: 'destructive' });
         }
     });
 
     const handleSetBudget = () => {
-        if (!selectedCategory || !limit) return;
+        if (!selectedCategory || !limit) {
+            toast({ title: 'Error', description: 'Please select a category and enter a limit', variant: 'destructive' });
+            return;
+        }
         mutation.mutate({ category: selectedCategory, limit: Number(limit) });
     };
 
@@ -99,10 +123,10 @@ export default function BudgetPage() {
                         <CardHeader>
                             <CardTitle className="flex items-center gap-2"><Target className="h-5 w-5 text-primary" /> Set New Budget</CardTitle>
                         </CardHeader>
-                        <CardContent className="flex gap-4 items-end">
-                            <div className="w-1/3 space-y-2">
+                        <CardContent className="flex gap-4 items-end flex-wrap">
+                            <div className="flex-1 min-w-[200px] space-y-2">
                                 <label className="text-sm font-medium">Category</label>
-                                <Select onValueChange={setSelectedCategory}>
+                                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                                     <SelectTrigger>
                                         <SelectValue placeholder="Select Category" />
                                     </SelectTrigger>
@@ -111,53 +135,65 @@ export default function BudgetPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="w-1/3 space-y-2">
+                            <div className="flex-1 min-w-[200px] space-y-2">
                                 <label className="text-sm font-medium">Limit (₹)</label>
                                 <Input type="number" placeholder="5000" value={limit} onChange={e => setLimit(e.target.value)} />
                             </div>
-                            <Button onClick={handleSetBudget} disabled={mutation.isPending} className="flex-1 gradient-primary">
+                            <Button onClick={handleSetBudget} disabled={mutation.isPending} className="gradient-primary">
                                 {mutation.isPending ? 'Saving...' : 'Set Limit'}
                             </Button>
                         </CardContent>
                     </Card>
 
+                    {/* Error Message */}
+                    {budgetsError && (
+                        <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg text-red-500 text-sm">
+                            Failed to load budgets. Please try refreshing the page.
+                        </div>
+                    )}
+
                     {/* Budget List */}
-                    <div className="grid md:grid-cols-2 gap-6">
-                        {budgets.map((budget: Budget) => {
-                            const spent = spending[budget.category] || 0;
-                            const percent = Math.min((spent / budget.limit) * 100, 100);
-                            const isOver = spent > budget.limit;
+                    {isBudgetsLoading || isSpendingLoading ? (
+                        <div className="text-center py-10 text-muted-foreground">
+                            Loading budgets...
+                        </div>
+                    ) : (
+                        <div className="grid md:grid-cols-2 gap-6">
+                            {budgets.map((budget: Budget) => {
+                                const spent = spending[budget.category] || 0;
+                                const percent = Math.min((spent / budget.limit) * 100, 100);
+                                const isOver = spent > budget.limit;
 
-                            return (
-                                <motion.div key={budget.category} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                                    <Card className={`glass-card ${isOver ? 'border-red-500/50' : ''}`}>
-                                        <CardHeader className="flex flex-row justify-between items-center pb-2">
-                                            <CardTitle className="font-medium text-lg">{budget.category}</CardTitle>
-                                            <div className="flex items-center gap-2 text-sm">
-                                                <Wallet className="h-4 w-4 text-muted-foreground" />
-                                                <span className={isOver ? 'text-red-500 font-bold' : ''}>
-                                                    ₹{spent.toLocaleString()} / ₹{budget.limit.toLocaleString()}
-                                                </span>
-                                            </div>
-                                        </CardHeader>
-                                        <CardContent>
-                                            <Progress value={percent} className={`h-3 ${isOver ? '[&>div]:bg-red-500' : '[&>div]:' + getProgressColor(percent)}`} />
-                                            <p className="text-xs text-right mt-2 text-muted-foreground">
-                                                {percent.toFixed(1)}% Used
-                                            </p>
-                                        </CardContent>
-                                    </Card>
-                                </motion.div>
-                            );
-                        })}
+                                return (
+                                    <motion.div key={budget.category} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                                        <Card className={`glass-card ${isOver ? 'border-red-500/50' : ''}`}>
+                                            <CardHeader className="flex flex-row justify-between items-center pb-2">
+                                                <CardTitle className="font-medium text-lg">{budget.category}</CardTitle>
+                                                <div className="flex items-center gap-2 text-sm">
+                                                    <Wallet className="h-4 w-4 text-muted-foreground" />
+                                                    <span className={isOver ? 'text-red-500 font-bold' : ''}>
+                                                        ₹{spent.toLocaleString()} / ₹{budget.limit.toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <Progress value={percent} className={`h-3 ${isOver ? '[&>div]:bg-red-500' : '[&>div]:' + getProgressColor(percent)}`} />
+                                                <p className="text-xs text-right mt-2 text-muted-foreground">
+                                                    {percent.toFixed(1)}% Used
+                                                </p>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                );
+                            })}
 
-
-                        {budgets.length === 0 && (
-                            <div className="col-span-2 text-center py-10 text-muted-foreground">
-                                No budgets set yet. Add one above to start tracking!
-                            </div>
-                        )}
-                    </div>
+                            {budgets.length === 0 && (
+                                <div className="col-span-2 text-center py-10 text-muted-foreground">
+                                    No budgets set yet. Add one above to start tracking!
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                 </main>
             </div>
