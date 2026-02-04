@@ -37,11 +37,18 @@ export default function Profile() {
         setName(firebaseUser.displayName || 'User');
         setEmail(firebaseUser.email || '');
         
-        // Calculate days active
-        const createdAt = firebaseUser.metadata?.creationTime;
-        if (createdAt) {
-          const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-          setDaysActive(Math.max(0, days));
+        // Calculate days active safely
+        try {
+          const createdAt = firebaseUser.metadata?.creationTime;
+          if (createdAt && createdAt instanceof Date) {
+            const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+            setDaysActive(Math.max(0, days));
+          } else {
+            setDaysActive(0);
+          }
+        } catch (error) {
+          console.log('Error calculating days active:', error);
+          setDaysActive(0);
         }
         
         // Fetch phone number and location from Firestore
@@ -75,11 +82,18 @@ export default function Profile() {
       setName(current.displayName || 'User');
       setEmail(current.email || '');
       
-      // Calculate days active
-      const createdAt = current.metadata?.creationTime;
-      if (createdAt) {
-        const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-        setDaysActive(Math.max(0, days));
+      // Calculate days active safely
+      try {
+        const createdAt = current.metadata?.creationTime;
+        if (createdAt && createdAt instanceof Date) {
+          const days = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+          setDaysActive(Math.max(0, days));
+        } else {
+          setDaysActive(0);
+        }
+      } catch (error) {
+        console.log('Error calculating days active:', error);
+        setDaysActive(0);
       }
       
       // Fetch phone number and location from Firestore
