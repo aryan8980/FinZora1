@@ -13,6 +13,7 @@ from datetime import datetime
 from firebase_service import FirebaseService
 from ai_categorizer import ExpenseCategorizer
 from stock_service import StockService
+from crypto_service import CryptoService
 from chat_service import ChatService
 from budget_service import BudgetService
 from validations import validate_transaction, validate_stock_input
@@ -29,6 +30,7 @@ CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 firebase_service = FirebaseService()
 categorizer = ExpenseCategorizer()
 stock_service = StockService()
+crypto_service = CryptoService()
 chat_service = ChatService()
 budget_service = BudgetService(firebase_service)
 
@@ -369,6 +371,21 @@ def get_stocks():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/stock/delete/<stock_id>', methods=['DELETE'])
+def delete_stock(stock_id):
+    """
+    Delete stock from portfolio
+    """
+    try:
+        success = firebase_service.delete_stock(stock_id)
+        if success:
+            return jsonify({'success': True, 'message': 'Stock deleted successfully'}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Failed to delete stock'}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/api/stock/update-prices', methods=['POST'])
 def update_stock_prices():
     """
@@ -421,6 +438,130 @@ def update_stock_prices():
             'failed_stocks': failed_stocks if failed_stocks else None
         }), 200
     
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ============================================================================
+# CRYPTO PORTFOLIO ENDPOINTS
+# ============================================================================
+
+@app.route('/api/crypto/add', methods=['POST'])
+def add_crypto():
+    """
+    Add crypto to portfolio with real live price fetch
+    Expected JSON: { symbol, quantity, buy_price, date }
+    """
+    try:
+        data = request.get_json()
+        symbol = data.get('symbol', '').lower() # CoinGecko IDs are usually lowercase
+        name = data.get('name', symbol)
+        
+        # Simple mapping for common symbols if user enters 'BTC' instead of 'bitcoin'
+        # In a real app, we would search first. For now, we trust the input or map basics.
+        symbol_map = {
+            'btc': 'bitcoin',
+            'eth': 'ethereum',
+            'sol': 'solana',
+            'ada': 'cardano',
+            'doge': 'dogecoin',
+            'dot': 'polkadot',
+            'matic': 'matic-network'
+        }
+        coin_id = symbol_map.get(symbol, symbol)
+        
+        # Fetch REAL current price
+        try:
+            current_price = crypto_service.get_live_price(coin_id)
+            if not current_price:
+                # If direct ID failed, try searching
+                results = crypto_service.search_coin(symbol)
+                if results:
+                    coin_id = results[0]['id']
+                    current_price = crypto_service.get_live_price(coin_id)
+            
+            if not current_price:
+                 return jsonify({
+                    'success': False,
+                    'message': f"Could not fetch price for {symbol}. Try using the full name (e.g., 'bitcoin')."
+                }), 400
+                
+        except Exception as e:
+             return jsonify({
+                'success': False,
+                'message': f"Error fetching crypto price: {str(e)}"
+            }), 400
+        
+        # Calculate profit/loss
+        buy_price = float(data.get('buy_price'))
+        quantity = float(data.get('quantity'))
+        profit_loss = (current_price - buy_price) * quantity
+        
+        # Prepare crypto record
+        crypto_record = {
+            'symbol': symbol.upper(), # Display as uppercase
+            'coin_id': coin_id,      # Store actual ID for updates
+            'name': name,
+            'quantity': quantity,
+            'buy_price': buy_price,
+            'current_price': current_price,
+            'profit_loss': profit_loss,
+            'date': data.get('date', datetime.now().isoformat()),
+            'timestamp': datetime.now().isoformat(),
+            'type': 'crypto'
+        }
+        
+        # Save to Firestore
+        doc_id = firebase_service.add_crypto(crypto_record)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Crypto added successfully',
+            'id': doc_id,
+            'current_price': current_price
+        }), 201
+    
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/crypto/list', methods=['GET'])
+def get_crypto():
+    """Retrieve user's crypto portfolio"""
+    try:
+        cryptos = firebase_service.get_crypto()
+        return jsonify({'success': True, 'data': cryptos}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/crypto/update-prices', methods=['POST'])
+def update_crypto_prices():
+    """Update live prices for all crypto"""
+    try:
+        cryptos = firebase_service.get_crypto()
+        updated = []
+        
+        for coin in cryptos:
+            coin_id = coin.get('coin_id', coin.get('symbol').lower())
+            current_price = crypto_service.get_live_price(coin_id)
+            
+            if current_price:
+                profit_loss = (current_price - coin['buy_price']) * coin['quantity']
+                firebase_service.update_crypto_price(coin['id'], current_price, profit_loss)
+                updated.append({'id': coin['id'], 'price': current_price})
+        
+        return jsonify({'success': True, 'updated': len(updated)}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/crypto/delete/<crypto_id>', methods=['DELETE'])
+def delete_crypto(crypto_id):
+    """Delete crypto from portfolio"""
+    try:
+        success = firebase_service.delete_crypto(crypto_id)
+        if success:
+            return jsonify({'success': True, 'message': 'Crypto deleted successfully'}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Failed to delete crypto'}), 400
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

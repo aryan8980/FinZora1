@@ -373,3 +373,109 @@ class FirebaseService:
         except Exception as e:
             print(f"Error deleting stock: {str(e)}")
             return False
+
+    # ========================================================================
+    # CRYPTO PORTFOLIO OPERATIONS
+    # ========================================================================
+    
+    def add_crypto(self, crypto_record):
+        """
+        Add crypto to portfolio.
+        Args: crypto_record (dict)
+        Returns: doc_id (str)
+        """
+        try:
+            if self.use_local or not self.db:
+                data = self._read_local()
+                bucket = self._user_bucket(data)
+                doc_id = self._new_id()
+                record = {**crypto_record, 'id': doc_id}
+                # Ensure 'crypto' list exists
+                if 'crypto' not in bucket:
+                    bucket['crypto'] = []
+                bucket['crypto'].insert(0, record)
+                self._write_local(data)
+                return doc_id
+
+            doc_ref = self.db.collection('users').document(self.user_id)\
+                      .collection('crypto').add(crypto_record)
+            return doc_ref[1].id
+        except Exception as e:
+            print(f"Error adding crypto: {str(e)}")
+            raise
+    
+    def get_crypto(self, limit=100):
+        """
+        Retrieve user's crypto portfolio.
+        Returns: list of crypto records
+        """
+        try:
+            if self.use_local or not self.db:
+                data = self._read_local()
+                bucket = self._user_bucket(data)
+                return bucket.get('crypto', [])[:limit]
+
+            docs = self.db.collection('users').document(self.user_id)\
+                   .collection('crypto').limit(limit).stream()
+            cryptos = []
+            for doc in docs:
+                coin = doc.to_dict()
+                coin['id'] = doc.id
+                cryptos.append(coin)
+            return cryptos
+        except Exception as e:
+            print(f"Error retrieving crypto: {str(e)}")
+            return []
+
+    def update_crypto_price(self, crypto_id, current_price, profit_loss):
+        """
+        Update crypto with current price and profit/loss.
+        """
+        try:
+            if self.use_local or not self.db:
+                data = self._read_local()
+                bucket = self._user_bucket(data)
+                updated = []
+                # Ensure 'crypto' list exists
+                if 'crypto' not in bucket:
+                    bucket['crypto'] = []
+                    
+                for c in bucket.get('crypto', []):
+                    if c.get('id') == crypto_id:
+                        c['current_price'] = current_price
+                        c['profit_loss'] = profit_loss
+                        c['last_updated'] = datetime.now().isoformat()
+                    updated.append(c)
+                bucket['crypto'] = updated
+                self._write_local(data)
+                return
+
+            self.db.collection('users').document(self.user_id)\
+               .collection('crypto').document(crypto_id).update({
+                   'current_price': current_price,
+                   'profit_loss': profit_loss,
+                   'last_updated': datetime.now().isoformat()
+               })
+        except Exception as e:
+            print(f"Error updating crypto: {str(e)}")
+            raise
+
+    def delete_crypto(self, crypto_id):
+        """
+        Remove crypto from portfolio.
+        """
+        try:
+            if self.use_local or not self.db:
+                data = self._read_local()
+                bucket = self._user_bucket(data)
+                bucket['crypto'] = [c for c in bucket.get('crypto', []) if c.get('id') != crypto_id]
+                self._write_local(data)
+                return True
+
+            self.db.collection('users').document(self.user_id)\
+               .collection('crypto').document(crypto_id).delete()
+            return True
+        except Exception as e:
+            print(f"Error deleting crypto: {str(e)}")
+            return False
+

@@ -181,6 +181,100 @@ export const updateStockPrices = async () => {
   }
 };
 
+/**
+ * Delete stock from portfolio
+ * @param id - Stock ID
+ */
+export const deleteStock = async (id: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/stock/delete/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete stock');
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting stock:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// CRYPTO PORTFOLIO API
+// ============================================================================
+
+/**
+ * Add crypto to portfolio
+ */
+export const addCrypto = async (
+  symbol: string,
+  quantity: number,
+  buyPrice: number,
+  date: string = new Date().toISOString()
+) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/crypto/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, quantity, buy_price: buyPrice, date })
+    });
+
+    if (!response.ok) throw new Error('Failed to add crypto');
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding crypto:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch user's crypto portfolio
+ */
+export const getCryptoPortfolio = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/crypto/list`);
+    if (!response.ok) throw new Error('Failed to fetch crypto portfolio');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching crypto portfolio:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update live prices for all crypto
+ */
+export const updateCryptoPrices = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/crypto/update-prices`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (!response.ok) throw new Error('Failed to update crypto prices');
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating crypto prices:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete crypto from portfolio
+ * @param id - Crypto ID
+ */
+export const deleteCrypto = async (id: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/crypto/delete/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete crypto');
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting crypto:', error);
+    throw error;
+  }
+};
+
 // ============================================================================
 // ERROR HANDLING UTILITY
 // ============================================================================
