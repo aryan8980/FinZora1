@@ -14,23 +14,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { dummyInvestments, Investment } from '@/utils/dummyData';
 import { PlusCircle, TrendingUp, TrendingDown, Edit, Trash2, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useToast } from '@/hooks/use-toast';
-import { getCryptoPrice, getMultipleCryptoPrices } from '@/utils/cryptoApi';
-import { getStockPrice } from '@/utils/stockApi';
+import {
+  getStockPortfolio,
+  addStock,
+  deleteStock,
+  updateStockPrices,
+  getCryptoPortfolio,
+  addCrypto,
+  deleteCrypto,
+  updateCryptoPrices
+} from '@/services/api';
 import { useGuestMode } from '@/hooks/use-guest-mode';
+import { dummyInvestments, Investment } from '@/utils/dummyData';
 
 const cloneGuestInvestments = () => dummyInvestments.map((investment) => ({ ...investment }));
+
 const EmptyStateCard = ({ message }: { message: string }) => (
   <Card className="glass-card shadow-glass">
     <CardContent className="p-8 text-center text-muted-foreground text-sm">
@@ -41,76 +43,11 @@ const EmptyStateCard = ({ message }: { message: string }) => (
 
 export default function Investments() {
   const isGuestMode = useGuestMode();
-  const [investments, setInvestments] = useState<Investment[]>(() =>
-    isGuestMode ? cloneGuestInvestments() : []
-  );
+  const [investments, setInvestments] = useState<Investment[]>([]);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { toast } = useToast();
-
-  // Auto-refresh prices every 5 minutes
-  useEffect(() => {
-    if (!investments.length) return;
-    refreshPrices();
-    const interval = setInterval(refreshPrices, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, [investments.length]);
-
-  useEffect(() => {
-    setInvestments(isGuestMode ? cloneGuestInvestments() : []);
-  }, [isGuestMode]);
-
-  const refreshPrices = async () => {
-    if (!investments.length) {
-      toast({
-        title: 'No investments to refresh',
-        description: 'Add holdings to track live prices.',
-      });
-      return;
-    }
-
-    setIsRefreshing(true);
-    try {
-      const updatedInvestments = await Promise.all(
-        investments.map(async (inv) => {
-          if (inv.type === 'crypto') {
-            // Map common symbols to CoinGecko IDs
-            const coinIdMap: Record<string, string> = {
-              BTC: 'bitcoin',
-              ETH: 'ethereum',
-              SOL: 'solana',
-              ADA: 'cardano',
-            };
-            const coinId = coinIdMap[inv.symbol];
-            if (coinId) {
-              const priceData = await getCryptoPrice(coinId);
-              if (priceData) {
-                return { ...inv, currentPrice: priceData.current_price };
-              }
-            }
-          } else if (inv.type === 'stock') {
-            const priceData = await getStockPrice(inv.symbol);
-            if (priceData) {
-              return { ...inv, currentPrice: priceData.price };
-            }
-          }
-          return inv;
-        })
-      );
-      setInvestments(updatedInvestments);
-      toast({ title: 'Prices updated successfully!' });
-    } catch (error) {
-      console.error('Error refreshing prices:', error);
-      toast({ 
-        title: 'Failed to update prices', 
-        description: 'Using cached prices',
-        variant: 'destructive' 
-      });
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -121,11 +58,220 @@ export default function Investments() {
     currentPrice: '',
   });
 
+  // Load initial data
+  useEffect(() => {
+    if (isGuestMode) {
+      setInvestments(cloneGuestInvestments());
+    } else {
+      fetchInvestments();
+    }
+  }, [isGuestMode]);
+
+  const fetchInvestments = async () => {
+    try {
+      const [stocksData, cryptoData] = await Promise.all([
+        getStockPortfolio(),
+        getCryptoPortfolio()
+      ]);
+
+      const stocks = (stocksData.data || []).map((s: any) => ({
+        id: s.id,
+        name: s.symbol,
+        symbol: s.symbol,
+        type: 'stock',
+        quantity: s.quantity,
+        buyPrice: s.buy_price,
+        currentPrice: s.current_price,
+        profit_loss: s.profit_loss,
+        date: s.date
+      }));
+
+      const cryptos = (cryptoData.data || []).map((c: any) => ({
+        id: c.id,
+        name: c.name || c.symbol,
+        symbol: c.symbol,
+        type: 'crypto',
+        quantity: c.quantity,
+        buyPrice: c.buy_price,
+        currentPrice: c.current_price,
+        profit_loss: c.profit_loss,
+        date: c.date
+      }));
+
+      setInvestments([...stocks, ...cryptos]);
+    } catch (error) {
+      console.error('Error fetching investments:', error);
+      toast({
+        title: 'Failed to load portfolio',
+        description: 'Please try again later.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const refreshPrices = async () => {
+    if (isGuestMode) {
+      setIsRefreshing(true);
+      setTimeout(() => {
+        setIsRefreshing(false);
+        toast({ title: 'Prices updated successfully!' });
+      }, 1000);
+      return;
+    }
+
+    if (!investments.length) {
+      toast({
+        title: 'No investments to refresh',
+        description: 'Add holdings to track live prices.',
+      });
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        updateStockPrices(),
+        updateCryptoPrices()
+      ]);
+      await fetchInvestments();
+      toast({ title: 'Prices updated successfully!' });
+    } catch (error) {
+      console.error('Error refreshing prices:', error);
+      toast({
+        title: 'Failed to update prices',
+        description: 'Please check your connection and try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (isGuestMode) {
+      // Guest Mode Logic
+      let currentPriceNumber = parseFloat(formData.currentPrice || '0');
+      if (editingId) {
+        setInvestments(
+          investments.map((inv) =>
+            inv.id === editingId
+              ? {
+                ...inv,
+                ...formData,
+                quantity: parseFloat(formData.quantity),
+                buyPrice: parseFloat(formData.buyPrice),
+                currentPrice: currentPriceNumber,
+              }
+              : inv
+          )
+        );
+      } else {
+        const newInvestment: Investment = {
+          id: Date.now().toString(),
+          ...formData,
+          quantity: parseFloat(formData.quantity),
+          buyPrice: parseFloat(formData.buyPrice),
+          currentPrice: currentPriceNumber,
+        };
+        setInvestments([...investments, newInvestment]);
+      }
+      toast({ title: 'Investment saved (Guest Mode)' });
+      setIsAddOpen(false);
+      setEditingId(null);
+      return;
+    }
+
+    try {
+      if (editingId) {
+        toast({ title: 'Editing not supported in this version', variant: 'destructive' });
+      } else {
+        if (formData.type === 'stock') {
+          await addStock(
+            formData.symbol,
+            parseFloat(formData.quantity),
+            parseFloat(formData.buyPrice)
+          );
+        } else {
+          await addCrypto(
+            formData.symbol,
+            parseFloat(formData.quantity),
+            parseFloat(formData.buyPrice)
+          );
+        }
+        await fetchInvestments();
+        toast({ title: 'Investment added successfully!' });
+      }
+
+      setFormData({
+        name: '',
+        symbol: '',
+        type: 'crypto',
+        quantity: '',
+        buyPrice: '',
+        currentPrice: '',
+      });
+      setIsAddOpen(false);
+      setEditingId(null);
+    } catch (error: any) {
+      toast({
+        title: 'Failed to save investment',
+        description: error.message || 'Unknown error',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const handleEdit = (investment: Investment) => {
+    setFormData({
+      name: investment.name,
+      symbol: investment.symbol,
+      type: investment.type as 'stock' | 'crypto',
+      quantity: investment.quantity.toString(),
+      buyPrice: investment.buyPrice.toString(),
+      currentPrice: investment.currentPrice.toString(),
+    });
+    setEditingId(investment.id);
+    setIsAddOpen(true);
+  };
+
+  const handleDelete = async (id: string, type: string) => {
+    if (isGuestMode) {
+      setInvestments(investments.filter((inv) => inv.id !== id));
+      toast({ title: 'Investment deleted successfully!' });
+      return;
+    }
+
+    try {
+      if (type === 'stock') {
+        await deleteStock(id);
+      } else {
+        await deleteCrypto(id);
+      }
+      // Optimistic update or refetch
+      setInvestments(investments.filter((inv) => inv.id !== id));
+      toast({ title: 'Investment deleted successfully!' });
+    } catch (error) {
+      console.error('Error deleting investment:', error);
+      toast({
+        title: 'Failed to delete investment',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const calculateProfit = (investment: Investment) => {
+    const profit = (investment.currentPrice - investment.buyPrice) * investment.quantity;
+    const profitPercent = investment.buyPrice > 0
+      ? ((investment.currentPrice - investment.buyPrice) / investment.buyPrice) * 100
+      : 0;
+    return { profit, profitPercent };
+  };
+
   const cryptoInvestments = investments.filter((inv) => inv.type === 'crypto');
   const stockInvestments = investments.filter((inv) => inv.type === 'stock');
   const hasInvestments = investments.length > 0;
-  const hasCrypto = cryptoInvestments.length > 0;
-  const hasStocks = stockInvestments.length > 0;
 
   const totalCryptoValue = cryptoInvestments.reduce(
     (sum, inv) => sum + inv.quantity * inv.currentPrice,
@@ -141,94 +287,6 @@ export default function Investments() {
     { name: 'Crypto', value: totalCryptoValue, color: 'hsl(217 91% 60%)' },
     { name: 'Stocks', value: totalStockValue, color: 'hsl(142 71% 45%)' },
   ];
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    let currentPriceNumber: number;
-
-    if (formData.type === 'stock') {
-      const quote = await getStockPrice(formData.symbol);
-
-      if (quote && typeof quote.price === 'number' && !Number.isNaN(quote.price)) {
-        currentPriceNumber = quote.price;
-      } else {
-        toast({
-          title: 'Could not fetch stock price',
-          description: 'Using your buy price as the current price for now.',
-        });
-        currentPriceNumber = parseFloat(formData.buyPrice || '0');
-      }
-    } else {
-      currentPriceNumber = parseFloat(formData.currentPrice || '0');
-    }
-
-    if (Number.isNaN(currentPriceNumber)) {
-      currentPriceNumber = 0;
-    }
-
-    if (editingId) {
-      setInvestments(
-        investments.map((inv) =>
-          inv.id === editingId
-            ? {
-                ...inv,
-                ...formData,
-                quantity: parseFloat(formData.quantity),
-                buyPrice: parseFloat(formData.buyPrice),
-                currentPrice: currentPriceNumber,
-              }
-            : inv
-        )
-      );
-      toast({ title: 'Investment updated successfully!' });
-    } else {
-      const newInvestment: Investment = {
-        id: Date.now().toString(),
-        ...formData,
-        quantity: parseFloat(formData.quantity),
-        buyPrice: parseFloat(formData.buyPrice),
-        currentPrice: currentPriceNumber,
-      };
-      setInvestments([...investments, newInvestment]);
-      toast({ title: 'Investment added successfully!' });
-    }
-
-    setFormData({
-      name: '',
-      symbol: '',
-      type: 'crypto',
-      quantity: '',
-      buyPrice: '',
-      currentPrice: '',
-    });
-    setIsAddOpen(false);
-    setEditingId(null);
-  };
-
-  const handleEdit = (investment: Investment) => {
-    setFormData({
-      name: investment.name,
-      symbol: investment.symbol,
-      type: investment.type,
-      quantity: investment.quantity.toString(),
-      buyPrice: investment.buyPrice.toString(),
-      currentPrice: investment.currentPrice.toString(),
-    });
-    setEditingId(investment.id);
-    setIsAddOpen(true);
-  };
-
-  const handleDelete = (id: string) => {
-    setInvestments(investments.filter((inv) => inv.id !== id));
-    toast({ title: 'Investment deleted successfully!' });
-  };
-
-  const calculateProfit = (investment: Investment) => {
-    const profit = (investment.currentPrice - investment.buyPrice) * investment.quantity;
-    const profitPercent = ((investment.currentPrice - investment.buyPrice) / investment.buyPrice) * 100;
-    return { profit, profitPercent };
-  };
 
   const InvestmentCard = ({ investment }: { investment: Investment }) => {
     const { profit, profitPercent } = calculateProfit(investment);
@@ -256,13 +314,14 @@ export default function Investments() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => handleDelete(investment.id)}
+              // Pass type explicitly for delete
+              onClick={() => handleDelete(investment.id, investment.type)}
             >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        
+
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Quantity:</span>
@@ -475,18 +534,6 @@ export default function Investments() {
                           value={formData.buyPrice}
                           onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
                           placeholder="e.g., 45000"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="currentPrice">Current Price (₹)</Label>
-                        <Input
-                          id="currentPrice"
-                          type="number"
-                          step="0.01"
-                          value={formData.currentPrice}
-                          onChange={(e) => setFormData({ ...formData, currentPrice: e.target.value })}
-                          placeholder="e.g., 52000"
                           required
                         />
                       </div>

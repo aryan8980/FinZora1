@@ -1,155 +1,62 @@
 """
 Stock Service Module
 Purpose: Fetch live stock prices and manage stock portfolio logic
-Uses: Alpha Vantage API for real-time stock data
-Note: Free API key available at https://www.alphavantage.co/
+Uses: yfinance for real-time stock data (More reliable than free Alpha Vantage)
 """
 
-import requests
+import yfinance as yf
 from datetime import datetime
-import os
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class StockService:
     """
     Service for stock price management and portfolio calculations.
-    Integrates with Alpha Vantage API for real-time data.
+    Integrates with yfinance for real-time data.
     """
-    
-    # API Configuration - Get free key from https://www.alphavantage.co/
-    # Set via environment variable or directly below
-    ALPHA_VANTAGE_KEY = os.getenv('ALPHA_VANTAGE_API_KEY', 'demo')
-    ALPHA_VANTAGE_URL = 'https://www.alphavantage.co/query'
-    
-    # Retry configuration for API failures
-    MAX_RETRIES = 3
-    RETRY_DELAY = 1  # seconds
     
     def get_live_price(self, symbol):
         """
-        Fetch live stock price for given symbol.
-        ALWAYS fetches from real API, no fallback to mock data.
+        Fetch live stock price for given symbol using yfinance.
         
-        Args: symbol (str) - Stock symbol (e.g., 'AAPL', 'TCS')
+        Args: symbol (str) - Stock symbol (e.g., 'AAPL', 'TCS.NS')
         Returns: price (float) or None if API fails
         """
         try:
             symbol = symbol.upper().strip()
             
-            # Validate symbol format
-            if not symbol or len(symbol) > 10:
-                raise ValueError(f"Invalid symbol: {symbol}")
+            # Simple handling for Indian stocks if not specified
+            # This is a heuristic; in a real app, user might select exchange
+            if not symbol.endswith('.NS') and not symbol.endswith('.BO') and not symbol.isalpha():
+                 pass # Don't auto-append for now, trust user input or frontend
             
-            # Fetch from Alpha Vantage API with retry logic
-            price = self._fetch_from_alpha_vantage(symbol)
+            logger.info(f"Fetching price for: {symbol}")
+            ticker = yf.Ticker(symbol)
             
-            if price:
-                print(f"✓ Real price fetched for {symbol}: ${price}")
-                return price
-            else:
-                # Log error but don't use mock data
-                print(f"✗ Failed to fetch real price for {symbol}")
-                print(f"  Ensure your API key is valid: {self.ALPHA_VANTAGE_KEY}")
-                raise Exception(f"Could not fetch real price for {symbol}")
+            # fast_info is faster and often sufficient for current price
+            if hasattr(ticker, 'fast_info'):
+                price = ticker.fast_info.last_price
+                if price:
+                    logger.info(f"✓ Price fetched (fast_info): {price}")
+                    return price
+
+            # Fallback to history for robustness
+            todays_data = ticker.history(period='1d')
+            if not todays_data.empty:
+                price = todays_data['Close'].iloc[-1]
+                logger.info(f"✓ Price fetched (history): {price}")
+                return float(price)
+            
+            # If standard fetching fails, it might be an invalid symbol or no data
+            logger.warning(f"⚠ No price data found for {symbol}")
+            return None
         
         except Exception as e:
-            print(f"Error fetching price for {symbol}: {str(e)}")
-            raise
-    
-    def _fetch_from_alpha_vantage(self, symbol):
-        """
-        Fetch stock price from Alpha Vantage API with retry logic.
-        Always tries to get real data.
-        
-        Args: symbol (str) - Stock symbol
-        Returns: price (float) or None if all retries fail
-        """
-        print(f"\n  📡 Alpha Vantage API Call:")
-        print(f"     Symbol: {symbol}")
-        print(f"     API Key: {'set' if self.ALPHA_VANTAGE_KEY != 'demo' else '❌ DEMO (not real)'}")
-        
-        for attempt in range(self.MAX_RETRIES):
-            try:
-                params = {
-                    'function': 'GLOBAL_QUOTE',
-                    'symbol': symbol,
-                    'apikey': self.ALPHA_VANTAGE_KEY
-                }
-                
-                print(f"     Attempt {attempt + 1}/{self.MAX_RETRIES}...")
-                
-                # Fetch with timeout
-                response = requests.get(
-                    self.ALPHA_VANTAGE_URL,
-                    params=params,
-                    timeout=10
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                # Debug: Show full response structure
-                print(f"     Response keys: {list(data.keys())}")
-                
-                # Check for API error messages
-                if 'Error Message' in data:
-                    raise Exception(f"API Error: {data['Error Message']}")
-                
-                if 'Note' in data:
-                    # API call frequency limit reached
-                    print(f"     ⚠️ Rate Limit: {data['Note']}")
-                    if attempt < self.MAX_RETRIES - 1:
-                        import time
-                        time.sleep(self.RETRY_DELAY)
-                        continue
-                    return None
-                
-                # Extract price from response
-                if 'Global Quote' in data:
-                    quote = data['Global Quote']
-                    print(f"     Quote data: {quote}")
-                    price = quote.get('05. price')
-                    
-                    if price and price != '':
-                        print(f"     ✓ Price found: ${price}")
-                        return float(price)
-                    else:
-                        print(f"     ⚠️ No price in quote data")
-                else:
-                    print(f"     ⚠️ No 'Global Quote' in response")
-                
-                # No price data in response, retry
-                if attempt < self.MAX_RETRIES - 1:
-                    import time
-                    print(f"     Retrying...")
-                    time.sleep(self.RETRY_DELAY)
-                    continue
-                
-                return None
-            
-            except requests.exceptions.Timeout:
-                print(f"     ⚠️ Timeout on attempt {attempt + 1}/{self.MAX_RETRIES}")
-                if attempt < self.MAX_RETRIES - 1:
-                    import time
-                    time.sleep(self.RETRY_DELAY)
-                    continue
-                return None
-            
-            except requests.exceptions.RequestException as e:
-                print(f"⚠ Network error on attempt {attempt + 1}: {str(e)}")
-                if attempt < self.MAX_RETRIES - 1:
-                    import time
-                    time.sleep(self.RETRY_DELAY)
-                    continue
-                return None
-            
-            except Exception as e:
-                print(f"✗ Error fetching from API: {str(e)}")
-                if attempt < self.MAX_RETRIES - 1:
-                    import time
-                    time.sleep(self.RETRY_DELAY)
-                    continue
-                return None
-        
-        return None
+            logger.error(f"Error fetching price for {symbol}: {str(e)}")
+            return None
     
     def get_stock_details(self, symbol):
         """
@@ -159,30 +66,41 @@ class StockService:
         """
         try:
             symbol = symbol.upper()
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
             
-            params = {
-                'function': 'GLOBAL_QUOTE',
-                'symbol': symbol,
-                'apikey': self.ALPHA_VANTAGE_KEY
-            }
+            # Calculate change if possible, or just return basic info
+            current_price = info.get('currentPrice') or info.get('regularMarketPrice')
+            previous_close = info.get('previousClose') or info.get('regularMarketPreviousClose')
             
-            response = requests.get(self.ALPHA_VANTAGE_URL, params=params, timeout=5)
-            data = response.json()
+            if not current_price:
+                 # Try history if info is missing (common with yfinance sometimes)
+                 hist = ticker.history(period="2d")
+                 if not hist.empty:
+                     current_price = hist['Close'].iloc[-1]
+                     previous_close = hist['Close'].iloc[-2] if len(hist) > 1 else current_price
+
+            change = 0
+            change_percent = 0
             
-            if 'Global Quote' in data:
-                quote = data['Global Quote']
-                return {
+            if current_price and previous_close:
+                change = current_price - previous_close
+                if previous_close != 0:
+                    change_percent = (change / previous_close) * 100
+            
+            if current_price:
+                 return {
                     'symbol': symbol,
-                    'price': float(quote.get('05. price', 0)),
-                    'change': float(quote.get('09. change', 0)),
-                    'change_percent': float(quote.get('10. change percent', '0%').strip('%')),
+                    'price': float(current_price),
+                    'change': float(change),
+                    'change_percent': float(change_percent),
                     'timestamp': datetime.now().isoformat()
                 }
             
             return None
         
         except Exception as e:
-            print(f"Error fetching stock details: {str(e)}")
+            logger.error(f"Error fetching stock details: {str(e)}")
             return None
     
     def calculate_portfolio_metrics(self, stocks):
@@ -215,18 +133,20 @@ class StockService:
             }
         
         except Exception as e:
-            print(f"Error calculating portfolio metrics: {str(e)}")
+            logger.error(f"Error calculating portfolio metrics: {str(e)}")
             return {}
     
     def validate_symbol(self, symbol):
         """
-        Validate if stock symbol exists by fetching its real price.
+        Validate if stock symbol exists by fetching its info.
         Args: symbol (str) - Stock symbol
-        Returns: bool - True if valid and price fetched successfully
+        Returns: bool - True if valid
         """
         try:
-            price = self.get_live_price(symbol)
-            return price is not None
+            ticker = yf.Ticker(symbol)
+            # Fetching history is a cheap way to check validity without downloading full info
+            hist = ticker.history(period="1mo")
+            return not hist.empty
         except:
             return False
     
@@ -234,22 +154,40 @@ class StockService:
         """
         Fetch real prices for multiple stocks.
         Returns prices that were successfully fetched from API.
-        
-        Args: symbols (list) - List of stock symbols
-        Returns: dict - { symbol: price } (only successful fetches)
         """
         prices = {}
-        failed_symbols = []
+        # yfinance can handle batch downloading but Ticker approach is simpler for small lists
+        # For larger lists, yf.download(symbols) is better
         
-        for symbol in symbols:
-            try:
-                price = self.get_live_price(symbol)
-                if price:
-                    prices[symbol] = price
-            except Exception as e:
-                failed_symbols.append(f"{symbol} ({str(e)})")
-        
-        if failed_symbols:
-            print(f"⚠ Failed to fetch prices for: {', '.join(failed_symbols)}")
-        
+        if not symbols:
+            return {}
+
+        # Use batch download for efficiency
+        try:
+            data = yf.download(symbols, period="1d", group_by='ticker', progress=False)
+            
+            # Handle single symbol case (structure is different)
+            if len(symbols) == 1:
+                symbol = symbols[0]
+                if not data.empty:
+                    price = data['Close'].iloc[-1]
+                    prices[symbol] = float(price)
+            else:
+                for symbol in symbols:
+                    try:
+                        # Check if column exists for this ticker
+                        if symbol in data.columns.levels[0]:
+                             price = data[symbol]['Close'].iloc[-1]
+                             if not pd.isna(price): # check for NaN
+                                prices[symbol] = float(price)
+                    except:
+                        continue
+        except Exception as e:
+            logger.error(f"Batch download failed, falling back to sequential: {e}")
+            # Fallback
+            for symbol in symbols:
+                p = self.get_live_price(symbol)
+                if p:
+                    prices[symbol] = p
+                    
         return prices
