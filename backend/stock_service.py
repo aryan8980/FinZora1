@@ -5,6 +5,7 @@ Uses: yfinance for real-time stock data (More reliable than free Alpha Vantage)
 """
 
 import yfinance as yf
+import pandas as pd
 from datetime import datetime
 import logging
 
@@ -37,18 +38,24 @@ class StockService:
             ticker = yf.Ticker(symbol)
             
             # fast_info is faster and often sufficient for current price
-            if hasattr(ticker, 'fast_info'):
-                price = ticker.fast_info.last_price
-                if price:
-                    logger.info(f"✓ Price fetched (fast_info): {price}")
-                    return price
+            try:
+                if hasattr(ticker, 'fast_info'):
+                    price = ticker.fast_info.last_price
+                    if price:
+                        logger.info(f"✓ Price fetched (fast_info): {price}")
+                        return price
+            except Exception as e:
+                logger.warning(f"⚠ fast_info failed: {e}")
 
             # Fallback to history for robustness
-            todays_data = ticker.history(period='1d')
-            if not todays_data.empty:
-                price = todays_data['Close'].iloc[-1]
-                logger.info(f"✓ Price fetched (history): {price}")
-                return float(price)
+            try:
+                todays_data = ticker.history(period='1d')
+                if not todays_data.empty:
+                    price = todays_data['Close'].iloc[-1]
+                    logger.info(f"✓ Price fetched (history): {price}")
+                    return float(price)
+            except Exception as e:
+                logger.warning(f"⚠ history failed: {e}")
             
             # If standard fetching fails, it might be an invalid symbol or no data
             logger.warning(f"⚠ No price data found for {symbol}")

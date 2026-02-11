@@ -308,7 +308,7 @@ def add_stock():
         
         # Calculate profit/loss
         buy_price = float(data.get('buy_price'))
-        quantity = int(data.get('quantity'))
+        quantity = float(data.get('quantity'))
         profit_loss = (current_price - buy_price) * quantity
         
         print(f"💰 Profit/Loss Calculation:")

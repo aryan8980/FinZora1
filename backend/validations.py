@@ -110,11 +110,11 @@ def validate_stock_input(symbol, quantity, buy_price):
             }
         
         try:
-            quantity = int(quantity)
+            quantity = float(quantity)
         except (ValueError, TypeError):
             return {
                 'valid': False,
-                'error': 'Stock quantity must be a whole number'
+                'error': 'Stock quantity must be a valid number'
             }
         
         # Check positive quantity
