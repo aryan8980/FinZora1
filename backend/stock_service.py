@@ -21,7 +21,7 @@ class StockService:
     
     def get_live_price(self, symbol):
         """
-        Fetch live stock price for given symbol using yfinance.
+        Fetch live stock price for given symbol using yfinance or direct API fallback.
         
         Args: symbol (str) - Stock symbol (e.g., 'AAPL', 'TCS.NS')
         Returns: price (float) or None if API fails
@@ -30,14 +30,13 @@ class StockService:
             symbol = symbol.upper().strip()
             
             # Simple handling for Indian stocks if not specified
-            # This is a heuristic; in a real app, user might select exchange
             if not symbol.endswith('.NS') and not symbol.endswith('.BO') and not symbol.isalpha():
-                 pass # Don't auto-append for now, trust user input or frontend
+                 pass 
             
             logger.info(f"Fetching price for: {symbol}")
             ticker = yf.Ticker(symbol)
             
-            # fast_info is faster and often sufficient for current price
+            # Attempt 1: fast_info
             try:
                 if hasattr(ticker, 'fast_info'):
                     price = ticker.fast_info.last_price
@@ -47,7 +46,7 @@ class StockService:
             except Exception as e:
                 logger.warning(f"⚠ fast_info failed: {e}")
 
-            # Fallback to history for robustness
+            # Attempt 2: history
             try:
                 todays_data = ticker.history(period='1d')
                 if not todays_data.empty:
@@ -57,6 +56,27 @@ class StockService:
             except Exception as e:
                 logger.warning(f"⚠ history failed: {e}")
             
+            # Attempt 3: Direct API Request (Fallback for Python 3.14/yfinance issues)
+            try:
+                import requests
+                # Yahoo Finance V8 endpoint
+                url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d"
+                headers = {'User-Agent': 'Mozilla/5.0'}
+                response = requests.get(url, headers=headers, timeout=5)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    result = data['chart']['result'][0]
+                    meta = result['meta']
+                    price = meta['regularMarketPrice']
+                    logger.info(f"✓ Price fetched (direct API): {price}")
+                    return float(price)
+                else:
+                    logger.warning(f"⚠ Direct API fallback returned status: {response.status_code}")
+                    logger.warning(f"Response: {response.text[:200]}")
+            except Exception as e:
+                 logger.warning(f"⚠ Direct API fallback failed: {e}")
+
             # If standard fetching fails, it might be an invalid symbol or no data
             logger.warning(f"⚠ No price data found for {symbol}")
             return None

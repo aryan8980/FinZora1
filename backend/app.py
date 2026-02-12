@@ -6,6 +6,9 @@ Purpose: Main Flask application handling income, expenses, and portfolio managem
 """
 
 import os
+# Force pure-python implementation of protobuf to fix "Metaclasses with custom tp_new" error in Python 3.14
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
+
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS

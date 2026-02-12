@@ -3,7 +3,18 @@
     "default_user": {
       "income": [],
       "expenses": [],
-      "stocks": []
+      "stocks": [
+        {
+          "symbol": "AAPL",
+          "quantity": 10.0,
+          "buy_price": 180.0,
+          "current_price": 275.5,
+          "profit_loss": 955.0,
+          "date": "2026-02-12T04:28:09.586Z",
+          "timestamp": "2026-02-12T09:58:13.741784",
+          "id": "7dff01261531412f92e29b9eaf52e49a"
+        }
+      ]
     }
   }
 }

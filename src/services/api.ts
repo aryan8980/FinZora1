@@ -5,7 +5,14 @@
  */
 
 // Use environment variable or default to localhost
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Force localhost in development to avoid stale production URL
+// @ts-ignore
+const API_BASE_URL = import.meta.env.DEV
+  ? 'http://localhost:5000/api'
+  : (import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
+
+console.log('🔌 API Service Initialized');
+console.log('   Base URL:', API_BASE_URL);
 
 // ============================================================================
 // INCOME API
@@ -135,14 +142,22 @@ export const addStock = async (
   date: string = new Date().toISOString()
 ) => {
   try {
+    console.log(`📤 Adding stock: ${symbol}, Qty: ${quantity}, Price: ${buyPrice}`);
     const response = await fetch(`${API_BASE_URL}/stock/add`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol, quantity, buy_price: buyPrice, date })
     });
 
-    if (!response.ok) throw new Error('Failed to add stock');
-    return await response.json();
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('❌ Failed to add stock:', errorData);
+      throw new Error(errorData.message || 'Failed to add stock');
+    }
+
+    const result = await response.json();
+    console.log('✅ Stock added:', result);
+    return result;
   } catch (error) {
     console.error('Error adding stock:', error);
     throw error;
