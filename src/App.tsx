@@ -19,6 +19,7 @@ import CurrencyConverter from "./pages/CurrencyConverter";
 import ChatAssistant from "./pages/ChatAssistant";
 import Profile from "./pages/Profile";
 import BudgetPage from "./pages/Budget";
+import Subscriptions from "./pages/Subscriptions";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => {
             <Route path="/reports" element={<Reports />} />
             <Route path="/goals" element={<Goals />} />
             <Route path="/budget" element={<BudgetPage />} />
+            <Route path="/subscriptions" element={<Subscriptions />} />
             <Route path="/investments" element={<Investments />} />
             <Route path="/currency" element={<CurrencyConverter />} />
             <Route path="/chat" element={<ChatAssistant />} />

@@ -3,6 +3,7 @@ import { Navbar } from '@/components/Navbar';
 import { Sidebar } from '@/components/Sidebar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -11,6 +12,21 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import { Search, Edit, Trash2, Plus, Download } from 'lucide-react';
@@ -19,7 +35,7 @@ import { Link } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { useGuestMode } from '@/hooks/use-guest-mode';
 import { auth, db } from '@/lib/firebase';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, updateDoc, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { loadUserTransactions, saveUserTransactions } from '@/utils/transactionsStorage';
 import { AppLayout } from '@/components/AppLayout';
@@ -31,6 +47,10 @@ export default function Transactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [user, setUser] = useState<User | null>(() => auth.currentUser);
   const { toast } = useToast();
+
+  // Edit State
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -129,8 +149,8 @@ export default function Transactions() {
   const handleDelete = async (id: string) => {
     if (!user) {
       // Local-only mode: update local storage
-      setTransactions((prev) => prev.filter((t) => t.id !== id));
-      const updated = loadUserTransactions().filter((t) => t.id !== id);
+      const updated = transactions.filter((t) => t.id !== id);
+      setTransactions(updated);
       saveUserTransactions(updated);
       toast({
         title: 'Transaction Deleted',
@@ -150,6 +170,56 @@ export default function Transactions() {
       toast({
         title: 'Failed to delete transaction',
         description: 'Something went wrong while deleting from the cloud. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const startEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingTransaction) return;
+
+    if (!user) {
+      // Local Update
+      const updated = transactions.map((t) =>
+        t.id === editingTransaction.id ? editingTransaction : t
+      );
+      setTransactions(updated);
+      saveUserTransactions(updated);
+      setIsEditOpen(false);
+      toast({
+        title: 'Transaction Updated',
+        description: 'Details have been saved locally.',
+      });
+      return;
+    }
+
+    try {
+      const txRef = doc(db, 'users', user.uid, 'transactions', editingTransaction.id);
+      await updateDoc(txRef, {
+        title: editingTransaction.title,
+        amount: Number(editingTransaction.amount),
+        date: editingTransaction.date,
+        category: editingTransaction.category,
+        description: editingTransaction.description,
+        type: editingTransaction.type,
+      });
+
+      setIsEditOpen(false);
+      toast({
+        title: 'Transaction Updated',
+        description: 'Details have been saved to the cloud.',
+      });
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      toast({
+        title: 'Update Failed',
+        description: 'Could not save changes. Please try again.',
         variant: 'destructive',
       });
     }
@@ -241,7 +311,11 @@ export default function Transactions() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => startEdit(transaction)}
+                            >
                               <Edit className="h-4 w-4" />
                             </Button>
                             <Button
@@ -270,6 +344,121 @@ export default function Transactions() {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Transaction</DialogTitle>
+            <DialogDescription>
+              Make changes to your transaction here. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          {editingTransaction && (
+            <form onSubmit={handleUpdate} className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="title" className="text-right">
+                  Title
+                </Label>
+                <Input
+                  id="title"
+                  value={editingTransaction.title}
+                  onChange={(e) =>
+                    setEditingTransaction({ ...editingTransaction, title: e.target.value })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="amount" className="text-right">
+                  Amount
+                </Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  value={editingTransaction.amount}
+                  onChange={(e) =>
+                    setEditingTransaction({
+                      ...editingTransaction,
+                      amount: Number(e.target.value),
+                    })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="date" className="text-right">
+                  Date
+                </Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={editingTransaction.date}
+                  onChange={(e) =>
+                    setEditingTransaction({ ...editingTransaction, date: e.target.value })
+                  }
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="type" className="text-right">
+                  Type
+                </Label>
+                <Select
+                  value={editingTransaction.type}
+                  onValueChange={(value: 'income' | 'expense') =>
+                    setEditingTransaction({ ...editingTransaction, type: value })
+                  }
+                >
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="income">Income</SelectItem>
+                    <SelectItem value="expense">Expense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {editingTransaction.type === 'expense' && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="category" className="text-right">
+                    Category
+                  </Label>
+                  <Select
+                    value={editingTransaction.category}
+                    onValueChange={(value) =>
+                      setEditingTransaction({ ...editingTransaction, category: value })
+                    }
+                  >
+                    <SelectTrigger className="col-span-3">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Food">Food</SelectItem>
+                      <SelectItem value="Transport">Transport</SelectItem>
+                      <SelectItem value="Entertainment">Entertainment</SelectItem>
+                      <SelectItem value="Shopping">Shopping</SelectItem>
+                      <SelectItem value="Bills">Bills</SelectItem>
+                      <SelectItem value="Health">Health</SelectItem>
+                      <SelectItem value="Education">Education</SelectItem>
+                      <SelectItem value="Savings">Savings</SelectItem>
+                      <SelectItem value="Friends">Friends</SelectItem>
+                      <SelectItem value="Family">Family</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <DialogFooter>
+                <Button type="submit">Save changes</Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 }

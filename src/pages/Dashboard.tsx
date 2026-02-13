@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Wallet, TrendingUp, TrendingDown, Lightbulb, Download } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   LineChart,
@@ -25,6 +25,9 @@ import type { Transaction } from '@/utils/dummyData';
 import { SummaryCard } from '@/components/SummaryCard';
 import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { generateFinancialInsights } from '@/utils/insights';
+import { generateSmartAlerts } from '@/utils/smartAlerts';
+import { SmartAlert } from '@/components/SmartAlert';
+import { identifyRecurringTransactions } from '@/utils/subscriptionUtils';
 
 const ChartEmptyState = ({ message }: { message: string }) => (
   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
@@ -36,6 +39,7 @@ export default function Dashboard() {
   const isGuestSession = useGuestMode();
   const [user, setUser] = useState<User | null>(() => auth.currentUser);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<any[]>([]); // Added for alerts
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -64,12 +68,13 @@ export default function Dashboard() {
       return;
     }
 
-    const q = query(
+    // 1. Transactions Listener
+    const txQuery = query(
       collection(db, 'users', user.uid, 'transactions'),
       orderBy('date', 'desc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubTx = onSnapshot(txQuery, (snapshot) => {
       const docs: Transaction[] = snapshot.docs.map((docSnap) => {
         const data = docSnap.data() as any;
         return {
@@ -89,7 +94,20 @@ export default function Dashboard() {
       setIsLoading(false);
     });
 
-    return () => unsubscribe();
+    // 2. Budgets Listener (For Smart Alerts)
+    const budgetQuery = query(collection(db, 'users', user.uid, 'budgets'));
+    const unsubBudget = onSnapshot(budgetQuery, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setBudgets(docs);
+    });
+
+    return () => {
+      unsubTx();
+      unsubBudget();
+    };
   }, [isGuestSession, user]);
 
   const { totalIncome, totalExpenses, totalBalance } = useMemo(() => {
@@ -193,6 +211,14 @@ export default function Dashboard() {
     return generateFinancialInsights(transactions);
   }, [transactions]);
 
+  const alerts = useMemo(() => {
+    return generateSmartAlerts(transactions, budgets);
+  }, [transactions, budgets]);
+
+  const subscriptions = useMemo(() => {
+    return identifyRecurringTransactions(transactions);
+  }, [transactions]);
+
   if (isLoading) {
     return (
       <AppLayout showProfile>
@@ -201,155 +227,19 @@ export default function Dashboard() {
     );
   }
 
-
-
-  const handleExportPDF = async () => {
-    try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const html2canvas = (await import('html2canvas')).default;
-
-      const element = document.createElement('div');
-      element.style.padding = '20px';
-      element.style.fontFamily = 'Arial, sans-serif';
-      element.style.backgroundColor = '#ffffff';
-      element.style.color = '#000000';
-
-      const title = document.createElement('h1');
-      title.textContent = 'Financial Dashboard Report';
-      title.style.marginBottom = '20px';
-      title.style.borderBottom = '2px solid #000';
-      title.style.paddingBottom = '10px';
-      element.appendChild(title);
-
-      const dateP = document.createElement('p');
-      dateP.textContent = `Generated on: ${new Date().toLocaleDateString()}`;
-      dateP.style.marginBottom = '20px';
-      element.appendChild(dateP);
-
-      // Summary Section
-      const summarySection = document.createElement('div');
-      summarySection.style.marginBottom = '30px';
-      const summaryTitle = document.createElement('h2');
-      summaryTitle.textContent = 'Financial Summary';
-      summarySection.appendChild(summaryTitle);
-
-      const summaryTable = document.createElement('table');
-      summaryTable.style.width = '100%';
-      summaryTable.style.borderCollapse = 'collapse';
-
-      const summaryData = [
-        { label: 'Total Income', value: `₹${totalIncome.toLocaleString()}` },
-        { label: 'Total Expenses', value: `₹${totalExpenses.toLocaleString()}` },
-        { label: 'Total Balance', value: `₹${totalBalance.toLocaleString()}` },
-      ];
-
-      summaryData.forEach((row) => {
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = '1px solid #ddd';
-        const td1 = document.createElement('td');
-        td1.textContent = row.label;
-        td1.style.padding = '8px';
-        td1.style.fontWeight = 'bold';
-        const td2 = document.createElement('td');
-        td2.textContent = row.value;
-        td2.style.padding = '8px';
-        td2.style.textAlign = 'right';
-        tr.appendChild(td1);
-        tr.appendChild(td2);
-        summaryTable.appendChild(tr);
-      });
-      summarySection.appendChild(summaryTable);
-      element.appendChild(summarySection);
-
-      // Helper for charts
-      const captureChart = async (id: string, titleText: string) => {
-        const chartElement = document.getElementById(id);
-        if (chartElement) {
-          const canvas = await html2canvas(chartElement, { scale: 2, backgroundColor: '#ffffff' });
-          const imgData = canvas.toDataURL('image/png');
-
-          const section = document.createElement('div');
-          section.style.marginBottom = '30px';
-          section.style.pageBreakInside = 'avoid';
-
-          const sectionTitle = document.createElement('h2');
-          sectionTitle.textContent = titleText;
-          sectionTitle.style.marginBottom = '10px';
-          section.appendChild(sectionTitle);
-
-          const img = document.createElement('img');
-          img.src = imgData;
-          img.style.width = '100%';
-          img.style.height = 'auto';
-          img.style.border = '1px solid #ddd';
-          img.style.borderRadius = '8px';
-          section.appendChild(img);
-
-          return section;
-        }
-        return null;
-      };
-
-      // Add Charts
-      if (lineData.length) {
-        const trendSection = await captureChart('monthly-chart', 'Monthly Trends');
-        if (trendSection) element.appendChild(trendSection);
-      }
-
-      if (pieData.length) {
-        const categorySection = await captureChart('category-chart', 'Expense Categories');
-        if (categorySection) element.appendChild(categorySection);
-      }
-
-      // Insights Section
-      if (insights.length > 0) {
-        const insightSection = document.createElement('div');
-        insightSection.style.marginBottom = '30px';
-        const insightTitle = document.createElement('h2');
-        insightTitle.textContent = 'AI Insights';
-        insightSection.appendChild(insightTitle);
-
-        insights.forEach((insight) => {
-          const p = document.createElement('p');
-          p.style.marginBottom = '8px';
-          p.style.padding = '10px';
-          p.style.backgroundColor = '#f5f5f5';
-          p.style.borderRadius = '4px';
-          p.textContent = `• ${insight.message}`;
-          insightSection.appendChild(p);
-        });
-        element.appendChild(insightSection);
-      }
-
-      const opt = {
-        margin: 10,
-        filename: `FinZora-Dashboard-${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
-      };
-
-      html2pdf().set(opt).from(element).save();
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
-    }
-  };
-
   return (
     <AppLayout showProfile>
       <div className="flex flex-col md:flex-row justify-between items-center mb-6">
         <h1 className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
           Dashboard
         </h1>
-        <Button variant="outline" onClick={handleExportPDF}>
-          <Download className="h-4 w-4 mr-2" />
-          Export Dashboard PDF
-        </Button>
       </div>
 
+      {/* Smart Alerts */}
+      <SmartAlert alerts={alerts} />
+
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-3 gap-6 mb-6">
         {summaryCards.map((card, index) => (
           <SummaryCard
             key={card.title}
@@ -362,9 +252,8 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid lg:grid-cols-2 gap-6">
-        {/* Line Chart */}
+      {/* Line Chart Section */}
+      <div className="mb-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -398,14 +287,18 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         </motion.div>
+      </div>
 
+      {/* Charts Row - Bottom */}
+      <div className="grid lg:grid-cols-2 gap-6 mb-6">
         {/* Pie Chart */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.4 }}
+          className="lg:col-span-2"
         >
-          <Card className="glass-card" id="category-chart">
+          <Card className="glass-card h-full" id="category-chart">
             <CardHeader>
               <CardTitle>Expense Categories</CardTitle>
             </CardHeader>

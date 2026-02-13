@@ -10,6 +10,7 @@ import {
   User,
   TrendingUp,
   PiggyBank,
+  Calendar,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +21,7 @@ const menuItems = [
   { icon: BarChart3, label: 'Reports', path: '/reports' },
   { icon: Target, label: 'Goals', path: '/goals' },
   { icon: PiggyBank, label: 'Budgets', path: '/budget' },
+  { icon: Calendar, label: 'Subscriptions', path: '/subscriptions' },
   { icon: TrendingUp, label: 'Investments', path: '/investments' },
   { icon: ArrowRightLeft, label: 'Currency', path: '/currency' },
   { icon: MessageSquare, label: 'AI Assistant', path: '/chat' },
