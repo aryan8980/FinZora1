@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Navbar } from '@/components/Navbar';
-import { Sidebar } from '@/components/Sidebar';
+import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -360,289 +359,283 @@ export default function Investments() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      <div className="flex">
-        <Sidebar />
-        <main className="flex-1 p-8">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-8"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
-                  Investment Portfolio
-                </h1>
-                <p className="text-muted-foreground">Track your crypto and stock investments with live prices</p>
-              </div>
-              <Button
-                onClick={refreshPrices}
-                disabled={isRefreshing}
-                variant="outline"
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh Prices
-              </Button>
-            </div>
-          </motion.div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-              <Card className="glass-card shadow-glass">
-                <CardContent className="p-6">
-                  <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
-                  <p className="text-3xl font-bold">₹{totalPortfolioValue.toLocaleString()}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-              <Card className="glass-card shadow-glass">
-                <CardContent className="p-6">
-                  <p className="text-sm text-muted-foreground mb-2">Crypto Value</p>
-                  <p className="text-3xl font-bold">₹{totalCryptoValue.toLocaleString()}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-              <Card className="glass-card shadow-glass">
-                <CardContent className="p-6">
-                  <p className="text-sm text-muted-foreground mb-2">Stock Value</p>
-                  <p className="text-3xl font-bold">₹{totalStockValue.toLocaleString()}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
+    <AppLayout>
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent mb-2">
+              Investment Portfolio
+            </h1>
+            <p className="text-muted-foreground">Track your crypto and stock investments with live prices</p>
           </div>
+          <Button
+            onClick={refreshPrices}
+            disabled={isRefreshing}
+            variant="outline"
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh Prices
+          </Button>
+        </div>
+      </motion.div>
 
-          {/* Performance Dashboard */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-            {hasInvestments ? (
-              <PerformanceDashboard investments={investments} />
-            ) : (
-              <EmptyStateCard message="Add investments to unlock performance analytics." />
-            )}
-          </motion.div>
-
-          {/* Price Alerts */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-8">
-            {hasInvestments ? (
-              <PriceAlerts investments={investments} />
-            ) : (
-              <EmptyStateCard message="Track at least one holding to set price alerts." />
-            )}
-          </motion.div>
-
-          {/* Portfolio Distribution Chart */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-            <Card className="glass-card shadow-glass my-8">
-              <CardHeader>
-                <CardTitle>Portfolio Distribution</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {hasInvestments ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={portfolioData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={(entry: any) => {
-                          const percent = totalPortfolioValue
-                            ? (entry.value / totalPortfolioValue) * 100
-                            : 0;
-                          return `${entry.name}: ${percent.toFixed(0)}%`;
-                        }}
-                        outerRadius={100}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {portfolioData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                ) : (
-                  <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
-                    Distribution data appears after you add investments.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Crypto Section */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-            <Card className="glass-card shadow-glass mb-8">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Cryptocurrency Holdings</CardTitle>
-                <Dialog open={isAddOpen && formData.type === 'crypto'} onOpenChange={setIsAddOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setFormData({ ...formData, type: 'crypto' })}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Add Crypto
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{editingId ? 'Edit' : 'Add'} Cryptocurrency</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <Label htmlFor="name">Cryptocurrency Name</Label>
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="e.g., Bitcoin"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="symbol">Symbol</Label>
-                        <Input
-                          id="symbol"
-                          value={formData.symbol}
-                          onChange={(e) => setFormData({ ...formData, symbol: e.target.value.toUpperCase() })}
-                          placeholder="e.g., BTC"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input
-                          id="quantity"
-                          type="number"
-                          step="0.00000001"
-                          value={formData.quantity}
-                          onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                          placeholder="e.g., 0.5"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="buyPrice">Buy Price (₹)</Label>
-                        <Input
-                          id="buyPrice"
-                          type="number"
-                          step="0.01"
-                          value={formData.buyPrice}
-                          onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
-                          placeholder="e.g., 45000"
-                          required
-                        />
-                      </div>
-                      <Button type="submit" className="w-full">
-                        {editingId ? 'Update' : 'Add'} Cryptocurrency
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {cryptoInvestments.map((investment) => (
-                    <InvestmentCard key={investment.id} investment={investment} />
-                  ))}
-                  {cryptoInvestments.length === 0 && (
-                    <p className="text-muted-foreground col-span-full text-center py-8">
-                      No crypto holdings yet. Add your first cryptocurrency!
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* Stock Section */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
-            <Card className="glass-card shadow-glass">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Stock Holdings</CardTitle>
-                <Dialog open={isAddOpen && formData.type === 'stock'} onOpenChange={setIsAddOpen}>
-                  <DialogTrigger asChild>
-                    <Button onClick={() => setFormData({ ...formData, type: 'stock' })}>
-                      <PlusCircle className="mr-2 h-4 w-4" />
-                      Add Stock
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>{editingId ? 'Edit' : 'Add'} Stock</DialogTitle>
-                    </DialogHeader>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      <div>
-                        <Label htmlFor="name">Company Name</Label>
-                        <Input
-                          id="name"
-                          value={formData.name}
-                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                          placeholder="e.g., Apple Inc"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="symbol">Ticker Symbol</Label>
-                        <Input
-                          id="symbol"
-                          value={formData.symbol}
-                          onChange={(e) => setFormData({ ...formData, symbol: e.target.value.toUpperCase() })}
-                          placeholder="e.g., AAPL"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="quantity">Quantity</Label>
-                        <Input
-                          id="quantity"
-                          type="number"
-                          step="1"
-                          value={formData.quantity}
-                          onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                          placeholder="e.g., 10"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor="buyPrice">Buy Price (₹)</Label>
-                        <Input
-                          id="buyPrice"
-                          type="number"
-                          step="0.01"
-                          value={formData.buyPrice}
-                          onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
-                          placeholder="e.g., 175"
-                          required
-                        />
-                      </div>
-                      <Button type="submit" className="w-full">
-                        {editingId ? 'Update' : 'Add'} Stock
-                      </Button>
-                    </form>
-                  </DialogContent>
-                </Dialog>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {stockInvestments.map((investment) => (
-                    <InvestmentCard key={investment.id} investment={investment} />
-                  ))}
-                  {stockInvestments.length === 0 && (
-                    <p className="text-muted-foreground col-span-full text-center py-8">
-                      No stock holdings yet. Add your first stock!
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </main>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <Card className="glass-card shadow-glass">
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground mb-2">Total Portfolio Value</p>
+              <p className="text-3xl font-bold">₹{totalPortfolioValue.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+          <Card className="glass-card shadow-glass">
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground mb-2">Crypto Value</p>
+              <p className="text-3xl font-bold">₹{totalCryptoValue.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+          <Card className="glass-card shadow-glass">
+            <CardContent className="p-6">
+              <p className="text-sm text-muted-foreground mb-2">Stock Value</p>
+              <p className="text-3xl font-bold">₹{totalStockValue.toLocaleString()}</p>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+
+      {/* Performance Dashboard */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+        {hasInvestments ? (
+          <PerformanceDashboard investments={investments} />
+        ) : (
+          <EmptyStateCard message="Add investments to unlock performance analytics." />
+        )}
+      </motion.div>
+
+      {/* Price Alerts */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mt-8">
+        {hasInvestments ? (
+          <PriceAlerts investments={investments} />
+        ) : (
+          <EmptyStateCard message="Track at least one holding to set price alerts." />
+        )}
+      </motion.div>
+
+      {/* Portfolio Distribution Chart */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
+        <Card className="glass-card shadow-glass my-8">
+          <CardHeader>
+            <CardTitle>Portfolio Distribution</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {hasInvestments ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={portfolioData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={(entry: any) => {
+                      const percent = totalPortfolioValue
+                        ? (entry.value / totalPortfolioValue) * 100
+                        : 0;
+                      return `${entry.name}: ${percent.toFixed(0)}%`;
+                    }}
+                    outerRadius={100}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {portfolioData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+                Distribution data appears after you add investments.
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Crypto Section */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
+        <Card className="glass-card shadow-glass mb-8">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Cryptocurrency Holdings</CardTitle>
+            <Dialog open={isAddOpen && formData.type === 'crypto'} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setFormData({ ...formData, type: 'crypto' })}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Crypto
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingId ? 'Edit' : 'Add'} Cryptocurrency</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Cryptocurrency Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., Bitcoin"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="symbol">Symbol</Label>
+                    <Input
+                      id="symbol"
+                      value={formData.symbol}
+                      onChange={(e) => setFormData({ ...formData, symbol: e.target.value.toUpperCase() })}
+                      placeholder="e.g., BTC"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      step="0.00000001"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      placeholder="e.g., 0.5"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="buyPrice">Buy Price (₹)</Label>
+                    <Input
+                      id="buyPrice"
+                      type="number"
+                      step="0.01"
+                      value={formData.buyPrice}
+                      onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
+                      placeholder="e.g., 45000"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    {editingId ? 'Update' : 'Add'} Cryptocurrency
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cryptoInvestments.map((investment) => (
+                <InvestmentCard key={investment.id} investment={investment} />
+              ))}
+              {cryptoInvestments.length === 0 && (
+                <p className="text-muted-foreground col-span-full text-center py-8">
+                  No crypto holdings yet. Add your first cryptocurrency!
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Stock Section */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.8 }}>
+        <Card className="glass-card shadow-glass">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Stock Holdings</CardTitle>
+            <Dialog open={isAddOpen && formData.type === 'stock'} onOpenChange={setIsAddOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setFormData({ ...formData, type: 'stock' })}>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Add Stock
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{editingId ? 'Edit' : 'Add'} Stock</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Company Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="e.g., Apple Inc"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="symbol">Ticker Symbol</Label>
+                    <Input
+                      id="symbol"
+                      value={formData.symbol}
+                      onChange={(e) => setFormData({ ...formData, symbol: e.target.value.toUpperCase() })}
+                      placeholder="e.g., AAPL"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      step="1"
+                      value={formData.quantity}
+                      onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                      placeholder="e.g., 10"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="buyPrice">Buy Price (₹)</Label>
+                    <Input
+                      id="buyPrice"
+                      type="number"
+                      step="0.01"
+                      value={formData.buyPrice}
+                      onChange={(e) => setFormData({ ...formData, buyPrice: e.target.value })}
+                      placeholder="e.g., 175"
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full">
+                    {editingId ? 'Update' : 'Add'} Stock
+                  </Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stockInvestments.map((investment) => (
+                <InvestmentCard key={investment.id} investment={investment} />
+              ))}
+              {stockInvestments.length === 0 && (
+                <p className="text-muted-foreground col-span-full text-center py-8">
+                  No stock holdings yet. Add your first stock!
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    </AppLayout>
   );
 }

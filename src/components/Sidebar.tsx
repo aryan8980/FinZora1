@@ -26,14 +26,20 @@ const menuItems = [
   { icon: User, label: 'Profile', path: '/profile' },
 ];
 
-export const Sidebar = () => {
+interface SidebarProps {
+  className?: string;
+  onNavigate?: () => void;
+}
+
+export const Sidebar = ({ className, onNavigate }: SidebarProps) => {
   return (
-    <aside className="w-64 border-r bg-card/80 backdrop-blur-md min-h-[calc(100vh-4rem)] p-4 shadow-xl z-20">
+    <aside className={cn("w-64 border-r bg-card/80 backdrop-blur-md min-h-[calc(100vh-4rem)] p-4 shadow-xl z-20", className)}>
       <nav className="space-y-2">
         {menuItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
+            onClick={onNavigate}
             className={({ isActive }) =>
               cn(
                 'group flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 ease-in-out',

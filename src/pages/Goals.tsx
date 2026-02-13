@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Navbar } from '@/components/Navbar';
-import { Sidebar } from '@/components/Sidebar';
+import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { motion } from 'framer-motion';
-import { Target, Trophy, Award, Star, Calendar } from 'lucide-react';
+import { Target, Trophy, Award, Star, Calendar, Download } from 'lucide-react';
 import { dummyGoals, type Goal } from '@/utils/dummyData';
 import confetti from 'canvas-confetti';
 import { useGuestMode } from '@/hooks/use-guest-mode';
@@ -114,7 +113,7 @@ export default function Goals() {
     const baseGoal: Goal = {
       id:
         (typeof crypto !== 'undefined' && 'randomUUID' in crypto &&
-          // @ts-expect-error - randomUUID may not exist in older environments
+          // crypto.randomUUID() check handled safely
           crypto.randomUUID()) ||
         Date.now().toString(),
       title: newTitle,
@@ -145,10 +144,10 @@ export default function Goals() {
         description: 'Your new financial goal has been created.',
       });
 
-    setNewTitle('');
-    setNewTarget('');
-    setNewDeadline('');
-    setNewCategory('Savings');
+      setNewTitle('');
+      setNewTarget('');
+      setNewDeadline('');
+      setNewCategory('Savings');
     } catch (error) {
       console.error('Error adding goal', error);
       toast({
@@ -159,223 +158,333 @@ export default function Goals() {
     }
   };
 
+  // Handle PDF Export
+  const handleExportPDF = async () => {
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const html2canvas = (await import('html2canvas')).default;
+
+      const element = document.createElement('div');
+      element.style.padding = '20px';
+      element.style.fontFamily = 'Arial, sans-serif';
+      element.style.backgroundColor = '#ffffff';
+      element.style.color = '#000000';
+
+      const title = document.createElement('h1');
+      title.textContent = 'Financial Goals Report';
+      title.style.marginBottom = '20px';
+      title.style.borderBottom = '2px solid #000';
+      title.style.paddingBottom = '10px';
+      element.appendChild(title);
+
+      const dateP = document.createElement('p');
+      dateP.textContent = `Generated on: ${new Date().toLocaleDateString()}`;
+      dateP.style.marginBottom = '20px';
+      element.appendChild(dateP);
+
+      // Summary Calculation
+      const totalGoals = goals.length;
+      const completedGoals = goals.filter(g => g.current >= g.target).length;
+      const totalTargetValue = goals.reduce((sum, g) => sum + g.target, 0);
+      const totalSaved = goals.reduce((sum, g) => sum + g.current, 0);
+
+      const summarySection = document.createElement('div');
+      summarySection.style.marginBottom = '30px';
+
+      const summaryTitle = document.createElement('h2');
+      summaryTitle.textContent = 'Goals Summary';
+      summarySection.appendChild(summaryTitle);
+
+      const summaryTable = document.createElement('table');
+      summaryTable.style.width = '100%';
+      summaryTable.style.borderCollapse = 'collapse';
+      summaryTable.style.marginBottom = '20px';
+
+      const summaryData = [
+        { label: 'Total Goals', value: totalGoals.toString() },
+        { label: 'Completed Goals', value: completedGoals.toString() },
+        { label: 'Total Target Value', value: `₹${totalTargetValue.toLocaleString()}` },
+        { label: 'Total Saved', value: `₹${totalSaved.toLocaleString()}` },
+      ];
+
+      summaryData.forEach((row) => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid #ddd';
+        const td1 = document.createElement('td');
+        td1.textContent = row.label;
+        td1.style.padding = '8px';
+        td1.style.fontWeight = 'bold';
+        const td2 = document.createElement('td');
+        td2.textContent = row.value;
+        td2.style.padding = '8px';
+        td2.style.textAlign = 'right';
+        tr.appendChild(td1);
+        tr.appendChild(td2);
+        summaryTable.appendChild(tr);
+      });
+      summarySection.appendChild(summaryTable);
+      element.appendChild(summarySection);
+
+      // Helper to capture
+      const captureAndAppend = async (id: string, titleText: string) => {
+        const gridElement = document.getElementById(id);
+        if (gridElement) {
+          const canvas = await html2canvas(gridElement, { scale: 2, backgroundColor: '#ffffff' });
+          const imgData = canvas.toDataURL('image/png');
+
+          const section = document.createElement('div');
+          section.style.marginBottom = '30px';
+          section.style.pageBreakInside = 'avoid';
+
+          const sectionTitle = document.createElement('h2');
+          sectionTitle.textContent = titleText;
+          sectionTitle.style.marginBottom = '10px';
+          section.appendChild(sectionTitle);
+
+          const img = document.createElement('img');
+          img.src = imgData;
+          img.style.width = '100%';
+          img.style.height = 'auto';
+          img.style.border = '1px solid #ddd'; // Add border for visual separation
+          img.style.borderRadius = '8px';
+          section.appendChild(img);
+          element.appendChild(section);
+        }
+      };
+
+      await captureAndAppend('goals-list', 'Goals Progress');
+      await captureAndAppend('badges-grid', 'Achievements');
+
+      const opt = {
+        margin: 10,
+        filename: `FinZora-Goals-${new Date().toISOString().split('T')[0]}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+      };
+
+      html2pdf().set(opt).from(element).save();
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({ title: 'Error', description: 'Failed to generate PDF.', variant: 'destructive' });
+    }
+  };
+
   return (
-    <div className="min-h-screen">
-      <Navbar showProfile />
-      
-      <div className="flex">
-        <Sidebar />
-        
-        <main className="flex-1 p-6 space-y-6">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-          >
+    <AppLayout showProfile>
+      <main className="flex-1 space-y-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4"
+        >
+          <div>
             <h1 className="text-3xl font-bold mb-2">Financial Goals</h1>
             <p className="text-muted-foreground">Track your progress and achieve your dreams</p>
-          </motion.div>
+          </div>
+          <Button variant="outline" onClick={handleExportPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+        </motion.div>
 
-          {/* Add Goal Form + Goals Grid */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            <Card className="glass-card order-last lg:order-first">
-              <CardHeader>
-                <CardTitle>Create New Goal</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
+        {/* Add Goal Form + Goals Grid */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          <Card className="glass-card order-last lg:order-first">
+            <CardHeader>
+              <CardTitle>Create New Goal</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="goal-title">Goal name</label>
+                <input
+                  id="goal-title"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  placeholder="e.g., Emergency Fund"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="goal-title">Goal name</label>
+                  <label className="text-sm font-medium" htmlFor="goal-target">Target (₹)</label>
                   <input
-                    id="goal-title"
+                    id="goal-target"
+                    type="number"
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    placeholder="e.g., Emergency Fund"
-                    value={newTitle}
-                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="50000"
+                    value={newTarget}
+                    onChange={(e) => setNewTarget(e.target.value)}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="goal-target">Target (₹)</label>
-                    <input
-                      id="goal-target"
-                      type="number"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      placeholder="50000"
-                      value={newTarget}
-                      onChange={(e) => setNewTarget(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium" htmlFor="goal-deadline">Deadline</label>
-                    <input
-                      id="goal-deadline"
-                      type="date"
-                      className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                      value={newDeadline}
-                      onChange={(e) => setNewDeadline(e.target.value)}
-                    />
-                  </div>
-                </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium" htmlFor="goal-category">Category</label>
+                  <label className="text-sm font-medium" htmlFor="goal-deadline">Deadline</label>
                   <input
-                    id="goal-category"
+                    id="goal-deadline"
+                    type="date"
                     className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    placeholder="Savings, Travel, Investment..."
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
+                    value={newDeadline}
+                    onChange={(e) => setNewDeadline(e.target.value)}
                   />
                 </div>
-                <Button className="w-full gradient-primary" onClick={handleAddGoal}>
-                  Add Goal
-                </Button>
-              </CardContent>
-            </Card>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="goal-category">Category</label>
+                <input
+                  id="goal-category"
+                  className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                  placeholder="Savings, Travel, Investment..."
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                />
+              </div>
+              <Button className="w-full gradient-primary" onClick={handleAddGoal}>
+                Add Goal
+              </Button>
+            </CardContent>
+          </Card>
 
-            {/* Goals Grid */}
-            <div className="space-y-0">
-              {goals.length === 0 ? (
-                <Card className="glass-card p-8 text-center text-muted-foreground">
-                  No goals yet. Add your first savings target to see progress here.
-                </Card>
-              ) : (
-                goals.map((goal, index) => {
-                  const progress = (goal.current / goal.target) * 100;
-                  const remaining = goal.target - goal.current;
-                  const daysLeft = Math.ceil(
-                    (new Date(goal.deadline).getTime() - new Date().getTime()) /
-                      (1000 * 60 * 60 * 24)
-                  );
+          {/* Goals Grid */}
+          <div className="space-y-0" id="goals-list">
+            {goals.length === 0 ? (
+              <Card className="glass-card p-8 text-center text-muted-foreground">
+                No goals yet. Add your first savings target to see progress here.
+              </Card>
+            ) : (
+              goals.map((goal, index) => {
+                const progress = (goal.current / goal.target) * 100;
+                const remaining = goal.target - goal.current;
+                const daysLeft = Math.ceil(
+                  (new Date(goal.deadline).getTime() - new Date().getTime()) /
+                  (1000 * 60 * 60 * 24)
+                );
 
-                  return (
-                    <motion.div
-                      key={goal.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3, delay: index * 0.1 }}
-                    >
-                      <Card className="glass-card shadow-glass hover:shadow-glow transition-all">
-                        <CardHeader>
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <CardTitle className="text-xl">{goal.title}</CardTitle>
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {goal.category}
-                              </p>
-                            </div>
-                            <div className="p-2 bg-gradient-primary rounded-lg">
-                              <Target className="h-5 w-5 text-primary-foreground" />
-                            </div>
-                          </div>
-                        </CardHeader>
-
-                        <CardContent className="space-y-4">
+                return (
+                  <motion.div
+                    key={goal.id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                  >
+                    <Card className="glass-card shadow-glass hover:shadow-glow transition-all">
+                      <CardHeader>
+                        <div className="flex items-start justify-between">
                           <div>
-                            <div className="flex justify-between text-sm mb-2">
-                              <span className="text-muted-foreground">Progress</span>
-                              <span className="font-medium">{progress.toFixed(0)}%</span>
-                            </div>
-                            <Progress value={progress} className="h-3" />
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 pt-2">
-                            <div>
-                              <p className="text-sm text-muted-foreground">Current</p>
-                              <p className="text-lg font-bold">
-                                ₹{goal.current.toLocaleString()}
-                              </p>
-                            </div>
-                            <div>
-                              <p className="text-sm text-muted-foreground">Target</p>
-                              <p className="text-lg font-bold">
-                                ₹{goal.target.toLocaleString()}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="pt-2 space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <Calendar className="h-4 w-4 text-primary" />
-                              <span>{daysLeft} days left</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground">
-                              ₹{remaining.toLocaleString()} remaining to reach your goal
+                            <CardTitle className="text-xl">{goal.title}</CardTitle>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {goal.category}
                             </p>
                           </div>
+                          <div className="p-2 bg-gradient-primary rounded-lg">
+                            <Target className="h-5 w-5 text-primary-foreground" />
+                          </div>
+                        </div>
+                      </CardHeader>
 
-                          {progress >= 100 && (
-                            <Button
-                              onClick={() => handleCelebrate(goal.id)}
-                              className="w-full gradient-primary"
-                            >
-                              🎉 Celebrate Achievement!
-                            </Button>
-                          )}
+                      <CardContent className="space-y-4">
+                        <div>
+                          <div className="flex justify-between text-sm mb-2">
+                            <span className="text-muted-foreground">Progress</span>
+                            <span className="font-medium">{progress.toFixed(0)}%</span>
+                          </div>
+                          <Progress value={progress} className="h-3" />
+                        </div>
 
-                          {progress < 100 && (
-                            <div className="p-3 bg-primary/10 rounded-lg">
-                              <p className="text-sm text-primary">
-                                💡 AI Tip: Save ₹
-                                {Math.ceil(remaining / (daysLeft || 1)).toLocaleString()}{' '}
-                                per day to reach this goal!
-                              </p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  );
-                })
-              )}
-            </div>
+                        <div className="grid grid-cols-2 gap-4 pt-2">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Current</p>
+                            <p className="text-lg font-bold">
+                              ₹{goal.current.toLocaleString()}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Target</p>
+                            <p className="text-lg font-bold">
+                              ₹{goal.target.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
 
+                        <div className="pt-2 space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <Calendar className="h-4 w-4 text-primary" />
+                            <span>{daysLeft} days left</span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            ₹{remaining.toLocaleString()} remaining to reach your goal
+                          </p>
+                        </div>
+
+                        {progress >= 100 && (
+                          <Button
+                            onClick={() => handleCelebrate(goal.id)}
+                            className="w-full gradient-primary"
+                          >
+                            🎉 Celebrate Achievement!
+                          </Button>
+                        )}
+
+                        {progress < 100 && (
+                          <div className="p-3 bg-primary/10 rounded-lg">
+                            <p className="text-sm text-primary">
+                              💡 AI Tip: Save ₹
+                              {Math.ceil(remaining / (daysLeft || 1)).toLocaleString()}{' '}
+                              per day to reach this goal!
+                            </p>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                );
+              })
+            )}
           </div>
 
-          {/* Badges Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-          >
-            <Card className="glass-card">
-              <CardHeader>
-                <CardTitle>Achievement Badges</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {displayBadges.map((badge, index) => (
-                    <motion.div
-                      key={badge.title}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
-                      className={`p-4 rounded-lg border-2 text-center ${
-                        badge.earned
-                          ? 'border-primary bg-primary/10'
-                          : 'border-border bg-muted/30 opacity-50'
+        </div>
+
+        {/* Badges Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+        >
+          <Card className="glass-card">
+            <CardHeader>
+              <CardTitle>Achievement Badges</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4" id="badges-grid">
+                {displayBadges.map((badge, index) => (
+                  <motion.div
+                    key={badge.title}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.5 + index * 0.1 }}
+                    className={`p-4 rounded-lg border-2 text-center ${badge.earned
+                      ? 'border-primary bg-primary/10'
+                      : 'border-border bg-muted/30 opacity-50'
                       }`}
-                    >
-                      <div className={`inline-flex p-3 rounded-full mb-3 ${
-                        badge.earned ? 'bg-gradient-primary' : 'bg-muted'
+                  >
+                    <div className={`inline-flex p-3 rounded-full mb-3 ${badge.earned ? 'bg-gradient-primary' : 'bg-muted'
                       }`}>
-                        <badge.icon className={`h-6 w-6 ${
-                          badge.earned ? 'text-primary-foreground' : 'text-muted-foreground'
+                      <badge.icon className={`h-6 w-6 ${badge.earned ? 'text-primary-foreground' : 'text-muted-foreground'
                         }`} />
-                      </div>
-                      <h3 className="font-semibold mb-1">{badge.title}</h3>
-                      <p className="text-xs text-muted-foreground">{badge.description}</p>
-                      {badge.earned && (
-                        <Badge className="mt-2" variant="default">Earned</Badge>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        </main>
-      </div>
-    </div>
+                    </div>
+                    <h3 className="font-semibold mb-1">{badge.title}</h3>
+                    <p className="text-xs text-muted-foreground">{badge.description}</p>
+                    {badge.earned && (
+                      <Badge className="mt-2" variant="default">Earned</Badge>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </main>
+    </AppLayout>
   );
 }

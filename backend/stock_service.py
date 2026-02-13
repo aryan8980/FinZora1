@@ -29,60 +29,98 @@ class StockService:
         try:
             symbol = symbol.upper().strip()
             
-            # Simple handling for Indian stocks if not specified
-            if not symbol.endswith('.NS') and not symbol.endswith('.BO') and not symbol.isalpha():
-                 pass 
+            # Smart Symbol Lookup
+            # If no suffix provided, try base symbol, then .NS (NSE), then .BO (BSE)
+            symbols_to_try = [symbol]
+            if '.' not in symbol and not symbol.isalpha() is False: # isalpha check to ensure it's a ticker
+                symbols_to_try.extend([f"{symbol}.NS", f"{symbol}.BO"])
             
-            logger.info(f"Fetching price for: {symbol}")
+            logger.info(f"🔍 Smart Lookup for '{symbol}'. Trying: {symbols_to_try}")
+
+            for sym in symbols_to_try:
+                price = self._get_price_for_symbol(sym)
+                if price:
+                    logger.info(f"✅ Found price for {sym}: {price}")
+                    return price
+            
+            logger.warning(f"❌ Smart Lookup failed for all variants of {symbol}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Error in get_live_price for {symbol}: {str(e)}")
+            return None
+
+    def _get_price_for_symbol(self, symbol):
+        """Helper to try all fetch methods for a single specific symbol string"""
+        try:
+            # Attempt 1: Finnhub API (Primary - Fast & Reliable)
+            price = self.get_finnhub_price(symbol)
+            if price:
+                 # logger.info(f"  ✓ Finnhub: {price}") # Reduce noise
+                 return price
+
+            # Attempt 2: yfinance fast_info
+            # logger.info(f"  Trying yfinance for: {symbol}")
             ticker = yf.Ticker(symbol)
-            
-            # Attempt 1: fast_info
             try:
                 if hasattr(ticker, 'fast_info'):
                     price = ticker.fast_info.last_price
                     if price:
-                        logger.info(f"✓ Price fetched (fast_info): {price}")
                         return price
-            except Exception as e:
-                logger.warning(f"⚠ fast_info failed: {e}")
+            except:
+                pass
 
-            # Attempt 2: history
+            # Attempt 3: yfinance history
             try:
                 todays_data = ticker.history(period='1d')
                 if not todays_data.empty:
                     price = todays_data['Close'].iloc[-1]
-                    logger.info(f"✓ Price fetched (history): {price}")
                     return float(price)
-            except Exception as e:
-                logger.warning(f"⚠ history failed: {e}")
+            except:
+                pass
             
-            # Attempt 3: Direct API Request (Fallback for Python 3.14/yfinance issues)
+            # Attempt 4: Direct API Request (Fallback)
             try:
                 import requests
-                # Yahoo Finance V8 endpoint
                 url = f"https://query1.finance.yahoo.com/v8/finance/chart/{symbol}?interval=1d&range=1d"
                 headers = {'User-Agent': 'Mozilla/5.0'}
-                response = requests.get(url, headers=headers, timeout=5)
-                
+                response = requests.get(url, headers=headers, timeout=3)
                 if response.status_code == 200:
                     data = response.json()
                     result = data['chart']['result'][0]
                     meta = result['meta']
                     price = meta['regularMarketPrice']
-                    logger.info(f"✓ Price fetched (direct API): {price}")
                     return float(price)
-                else:
-                    logger.warning(f"⚠ Direct API fallback returned status: {response.status_code}")
-                    logger.warning(f"Response: {response.text[:200]}")
-            except Exception as e:
-                 logger.warning(f"⚠ Direct API fallback failed: {e}")
+            except:
+                pass
 
-            # If standard fetching fails, it might be an invalid symbol or no data
-            logger.warning(f"⚠ No price data found for {symbol}")
             return None
-        
         except Exception as e:
-            logger.error(f"Error fetching price for {symbol}: {str(e)}")
+            logger.warning(f"  Error fetching {symbol}: {e}")
+            return None
+
+    def get_finnhub_price(self, symbol):
+        """Fetch price from Finnhub API"""
+        try:
+            import os
+            import requests
+            api_key = os.getenv('FINNHUB_API_KEY')
+            if not api_key:
+                return None
+            
+            # Finnhub uses slightly different symbols sometimes, but mostly standard
+            url = f"https://finnhub.io/api/v1/quote?symbol={symbol}&token={api_key}"
+            response = requests.get(url, timeout=5)
+            
+            if response.status_code == 200:
+                data = response.json()
+                # 'c' is current price
+                price = data.get('c', 0)
+                if price > 0:
+                     return float(price)
+            return None
+        except Exception as e:
+            logger.warning(f"⚠ Finnhub fetch failed: {e}")
             return None
     
     def get_stock_details(self, symbol):

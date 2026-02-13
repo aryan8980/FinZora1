@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Navbar } from '@/components/Navbar';
-import { Sidebar } from '@/components/Sidebar';
+import { useState, useEffect, useMemo } from 'react';
+import { generateFinancialInsights } from '@/utils/insights';
+import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
@@ -144,8 +144,8 @@ export default function Reports() {
 
   const handleExportPDF = async () => {
     try {
-      // Dynamically import html2pdf
       const html2pdf = (await import('html2pdf.js')).default;
+      const html2canvas = (await import('html2canvas')).default;
 
       // Create a temporary container with the report content
       const element = document.createElement('div');
@@ -200,17 +200,14 @@ export default function Reports() {
       summaryData.forEach((row) => {
         const tr = document.createElement('tr');
         tr.style.borderBottom = '1px solid #ddd';
-
         const td1 = document.createElement('td');
         td1.textContent = row.label;
         td1.style.padding = '8px';
         td1.style.fontWeight = 'bold';
-
         const td2 = document.createElement('td');
         td2.textContent = row.value;
         td2.style.padding = '8px';
         td2.style.textAlign = 'right';
-
         tr.appendChild(td1);
         tr.appendChild(td2);
         summaryTable.appendChild(tr);
@@ -219,117 +216,49 @@ export default function Reports() {
       summarySection.appendChild(summaryTable);
       element.appendChild(summarySection);
 
-      // Add category breakdown
+      // Helper function to capture chart image
+      const captureChart = async (id: string, titleText: string) => {
+        const chartElement = document.getElementById(id);
+        if (chartElement) {
+          const canvas = await html2canvas(chartElement, { scale: 2, backgroundColor: '#ffffff' });
+          const imgData = canvas.toDataURL('image/png');
+
+          const section = document.createElement('div');
+          section.style.marginBottom = '30px';
+          section.style.pageBreakInside = 'avoid';
+
+          const sectionTitle = document.createElement('h2');
+          sectionTitle.textContent = titleText;
+          sectionTitle.style.marginBottom = '10px';
+          section.appendChild(sectionTitle);
+
+          const img = document.createElement('img');
+          img.src = imgData;
+          img.style.width = '100%';
+          img.style.height = 'auto';
+          img.style.border = '1px solid #ddd';
+          img.style.borderRadius = '8px';
+          section.appendChild(img);
+
+          return section;
+        }
+        return null;
+      };
+
+      // Add Charts
       if (categoryChartData.length) {
-        const categorySection = document.createElement('div');
-        categorySection.style.marginBottom = '30px';
-
-        const categoryTitle = document.createElement('h2');
-        categoryTitle.textContent = 'Category Breakdown';
-        categoryTitle.style.marginBottom = '10px';
-        categorySection.appendChild(categoryTitle);
-
-        const categoryTable = document.createElement('table');
-        categoryTable.style.width = '100%';
-        categoryTable.style.borderCollapse = 'collapse';
-
-        const headerRow = document.createElement('tr');
-        headerRow.style.backgroundColor = '#f0f0f0';
-        headerRow.style.borderBottom = '2px solid #000';
-
-        const headers = ['Category', 'Amount'];
-        headers.forEach((header) => {
-          const th = document.createElement('th');
-          th.textContent = header;
-          th.style.padding = '8px';
-          th.style.textAlign = 'left';
-          headerRow.appendChild(th);
-        });
-        categoryTable.appendChild(headerRow);
-
-        categoryChartData.forEach((cat) => {
-          const tr = document.createElement('tr');
-          tr.style.borderBottom = '1px solid #ddd';
-
-          const td1 = document.createElement('td');
-          td1.textContent = cat.name;
-          td1.style.padding = '8px';
-
-          const td2 = document.createElement('td');
-          td2.textContent = `₹${cat.value.toLocaleString()}`;
-          td2.style.padding = '8px';
-          td2.style.textAlign = 'right';
-
-          tr.appendChild(td1);
-          tr.appendChild(td2);
-          categoryTable.appendChild(tr);
-        });
-
-        categorySection.appendChild(categoryTable);
-        element.appendChild(categorySection);
+        const categorySection = await captureChart('category-chart', 'Category Breakdown');
+        if (categorySection) element.appendChild(categorySection);
       }
 
-      // Add monthly trend data
       if (spendingTrendData.length) {
-        const trendSection = document.createElement('div');
-        trendSection.style.marginBottom = '30px';
+        const trendSection = await captureChart('spending-chart', 'Monthly Spending Trend');
+        if (trendSection) element.appendChild(trendSection);
+      }
 
-        const trendTitle = document.createElement('h2');
-        trendTitle.textContent = 'Monthly Spending Trend';
-        trendTitle.style.marginBottom = '10px';
-        trendSection.appendChild(trendTitle);
-
-        const trendTable = document.createElement('table');
-        trendTable.style.width = '100%';
-        trendTable.style.borderCollapse = 'collapse';
-
-        const headerRow = document.createElement('tr');
-        headerRow.style.backgroundColor = '#f0f0f0';
-        headerRow.style.borderBottom = '2px solid #000';
-
-        const headers = ['Month', 'Income', 'Expense', 'Net'];
-        headers.forEach((header) => {
-          const th = document.createElement('th');
-          th.textContent = header;
-          th.style.padding = '8px';
-          th.style.textAlign = 'right';
-          headerRow.appendChild(th);
-        });
-        trendTable.appendChild(headerRow);
-
-        spendingTrendData.forEach((row) => {
-          const tr = document.createElement('tr');
-          tr.style.borderBottom = '1px solid #ddd';
-
-          const td1 = document.createElement('td');
-          td1.textContent = row.month;
-          td1.style.padding = '8px';
-          td1.style.textAlign = 'left';
-
-          const td2 = document.createElement('td');
-          td2.textContent = `₹${row.income.toLocaleString()}`;
-          td2.style.padding = '8px';
-          td2.style.textAlign = 'right';
-
-          const td3 = document.createElement('td');
-          td3.textContent = `₹${row.expense.toLocaleString()}`;
-          td3.style.padding = '8px';
-          td3.style.textAlign = 'right';
-
-          const td4 = document.createElement('td');
-          td4.textContent = `₹${(row.income - row.expense).toLocaleString()}`;
-          td4.style.padding = '8px';
-          td4.style.textAlign = 'right';
-
-          tr.appendChild(td1);
-          tr.appendChild(td2);
-          tr.appendChild(td3);
-          tr.appendChild(td4);
-          trendTable.appendChild(tr);
-        });
-
-        trendSection.appendChild(trendTable);
-        element.appendChild(trendSection);
+      if (savingsData.length) {
+        const savingsSection = await captureChart('savings-chart', 'Savings Trend');
+        if (savingsSection) element.appendChild(savingsSection);
       }
 
       // Generate PDF
@@ -349,227 +278,184 @@ export default function Reports() {
   };
 
   const insights = useMemo(() => {
-    if (!transactions.length) {
-      return [
-        {
-          title: 'Start tracking your finances',
-          description:
-            'Add your first transaction to see personalized insights and financial analysis.',
-          variant: 'default' as const,
-        },
-      ];
-    }
-
-    const total = transactions.reduce((sum, t) => sum + t.amount * (t.type === 'income' ? 1 : -1), 0);
-    const expenseTotal = transactions
-      .filter((t) => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    return [
-      {
-        title: 'Live spending overview',
-        description: `You have recorded ${transactions.length} transactions. Net balance impact is ₹${total.toLocaleString()}.`,
-        variant: 'default' as const,
-      },
-      {
-        title: 'Expense intensity',
-        description: `Total expenses across all categories are ₹${expenseTotal.toLocaleString()}.`,
-        variant: 'accent' as const,
-      },
-    ];
-  }, [isGuestMode, transactions]);
+    return generateFinancialInsights(transactions);
+  }, [transactions]);
 
   return (
-    <div className="min-h-screen">
-      <Navbar showProfile />
-      
-      <div className="flex">
-        <Sidebar />
-        
-        <main className="flex-1 p-6 space-y-6">
-          {/* Header */}
+    <AppLayout showProfile>
+      <main className="flex-1 space-y-6">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+          className="flex items-center gap-4"
+        >
+          <h1 className="text-3xl font-bold">Financial Reports</h1>
+          <Button variant="outline" onClick={handleExportPDF}>
+            <Download className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+        </motion.div>
+
+        {/* Charts Grid */}
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Pie Chart */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="flex justify-between items-center"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
           >
-            <h1 className="text-3xl font-bold">Financial Reports</h1>
-            <Button variant="outline" onClick={handleExportPDF}>
-              <Download className="h-4 w-4 mr-2" />
-              Export PDF
-            </Button>
+            <Card className="glass-card" id="category-chart">
+              <CardHeader>
+                <CardTitle>Category Breakdown</CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                {categoryChartData.length ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <PieChart>
+                      <Pie
+                        data={categoryChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={(entry: any) => `${entry.name}`}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {categoryChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ChartEmptyState message="Add expenses to visualize category breakdown." />
+                )}
+              </CardContent>
+            </Card>
           </motion.div>
 
-          {/* Charts Grid */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            {/* Pie Chart */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.1 }}
-            >
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle>Category Breakdown</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center">
-                  {categoryChartData.length ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={categoryChartData}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={(entry: any) => `${entry.name}`}
-                          outerRadius={100}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {categoryChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <ChartEmptyState message="Add expenses to visualize category breakdown." />
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-
-            {/* Bar Chart */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-            >
-              <Card className="glass-card">
-                <CardHeader>
-                  <CardTitle>Monthly Spending</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {spendingTrendData.length ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={spendingTrendData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                        <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Legend />
-                        <Bar dataKey="income" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
-                        <Bar dataKey="expense" fill="hsl(var(--secondary))" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <ChartEmptyState message="No monthly data yet. Start tracking income and expenses." />
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
-
-          {/* Savings Trend */}
+          {/* Bar Chart */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.4, delay: 0.2 }}
           >
-            <Card className="glass-card">
+            <Card className="glass-card" id="spending-chart">
               <CardHeader>
-                <CardTitle>Savings Trend</CardTitle>
+                <CardTitle>Monthly Spending</CardTitle>
               </CardHeader>
               <CardContent>
-                  {savingsData.length ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={savingsData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                        <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
-                        <YAxis stroke="hsl(var(--muted-foreground))" />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: 'hsl(var(--card))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: '8px'
-                          }}
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="savings" 
-                          stroke="hsl(var(--success))" 
-                          strokeWidth={3}
-                          dot={{ fill: 'hsl(var(--success))', r: 6 }}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <ChartEmptyState message="Savings trend will appear after you log income and expenses." />
-                  )}
+                {spendingTrendData.length ? (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <BarChart data={spendingTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                      <YAxis stroke="hsl(var(--muted-foreground))" />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="income" fill="hsl(var(--primary))" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="expense" fill="hsl(var(--secondary))" radius={[8, 8, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ChartEmptyState message="No monthly data yet. Start tracking income and expenses." />
+                )}
               </CardContent>
             </Card>
           </motion.div>
+        </div>
 
-          {/* AI Insights Panel */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.4 }}
-          >
-            <Card className="glass-card border-primary/50 shadow-glow">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Lightbulb className="h-5 w-5 text-primary" />
-                  AI Spending Analysis
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {insights.map((insight) => {
-                  const containerClass =
-                    insight.variant === 'success'
-                      ? 'bg-success/10'
-                      : insight.variant === 'primary'
-                        ? 'bg-primary/10'
-                        : 'bg-accent/50';
-                  const headingClass =
-                    insight.variant === 'success'
-                      ? 'text-success'
-                      : insight.variant === 'primary'
-                        ? 'text-primary'
-                        : 'text-foreground';
-                  const bodyClass =
-                    insight.variant === 'success'
-                      ? 'text-sm text-success'
-                      : insight.variant === 'primary'
-                        ? 'text-sm text-primary'
-                        : 'text-sm text-muted-foreground';
+        {/* Savings Trend */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+        >
+          <Card className="glass-card" id="savings-chart">
+            <CardHeader>
+              <CardTitle>Savings Trend</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {savingsData.length ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={savingsData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="savings"
+                      stroke="hsl(var(--success))"
+                      strokeWidth={3}
+                      dot={{ fill: 'hsl(var(--success))', r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <ChartEmptyState message="Savings trend will appear after you log income and expenses." />
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
 
-                  return (
-                    <div key={insight.title} className={`p-4 rounded-lg ${containerClass}`}>
-                      <h4 className={`font-semibold mb-2 ${headingClass}`}>{insight.title}</h4>
-                      <p className={bodyClass}>{insight.description}</p>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          </motion.div>
-        </main>
-      </div>
-    </div>
+        {/* AI Insights Panel */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
+        >
+          <Card className="glass-card border-primary/50 shadow-glow">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-primary" />
+                AI Spending Analysis
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {insights.map((insight) => (
+                <div
+                  key={insight.id}
+                  className={
+                    insight.type === 'positive'
+                      ? 'p-4 bg-success/10 rounded-lg text-sm text-success-foreground border border-success/20'
+                      : insight.type === 'negative'
+                        ? 'p-4 bg-destructive/10 rounded-lg text-sm text-destructive border border-destructive/20'
+                        : 'p-4 bg-accent/50 rounded-lg text-sm text-muted-foreground border border-border'
+                  }
+                >
+                  <p className="font-medium mb-1">
+                    {insight.type === 'positive' ? 'Positive Trend' : insight.type === 'negative' ? 'Attention Needed' : 'Insight'}
+                  </p>
+                  <p>{insight.message}</p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </main>
+    </AppLayout>
   );
 }

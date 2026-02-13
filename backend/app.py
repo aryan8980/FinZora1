@@ -292,22 +292,22 @@ def add_stock():
         
         # Fetch REAL current stock price (ALWAYS try, even if Firebase will fail)
         print(f"🔍 Fetching REAL price for {symbol}...")
+        current_price = None
+        price_warning = None
+        
         try:
             current_price = stock_service.get_live_price(symbol)
-            print(f"✓ Real price fetched: ${current_price}")
-            
-            if not current_price:
-                print(f"❌ No price returned from API\n")
-                return jsonify({
-                    'success': False,
-                    'message': f"Could not fetch real price for {symbol}. Check your API key."
-                }), 400
+            if current_price:
+                print(f"✓ Real price fetched: ${current_price}")
+            else:
+                print(f"⚠️  No price returned from API, using Buy Price as fallback")
+                current_price = float(data.get('buy_price'))
+                price_warning = "Could not fetch live price. Using buy price as current value."
         except Exception as e:
-            print(f"❌ Error fetching price: {str(e)}\n")
-            return jsonify({
-                'success': False,
-                'message': f"Error fetching stock price: {str(e)}"
-            }), 400
+            print(f"⚠️  Error fetching price: {str(e)}")
+            print(f"   Using Buy Price as fallback")
+            current_price = float(data.get('buy_price'))
+            price_warning = f"Error fetching price: {str(e)}. Using buy price."
         
         # Calculate profit/loss
         buy_price = float(data.get('buy_price'))
@@ -328,7 +328,8 @@ def add_stock():
             'current_price': current_price,
             'profit_loss': profit_loss,
             'date': data.get('date', datetime.now().isoformat()),
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now().isoformat(),
+            'price_warning': price_warning  # Store warning if any
         }
         
         # Save to Firestore
@@ -338,10 +339,11 @@ def add_stock():
         
         return jsonify({
             'success': True,
-            'message': 'Stock added successfully with REAL live price',
+            'message': 'Stock added successfully' + (' (Live price unavailable)' if price_warning else ''),
             'stock_id': stock_id,
             'current_price': current_price,
-            'profit_loss': profit_loss
+            'profit_loss': profit_loss,
+            'warning': price_warning
         }), 201
     
     except Exception as e:

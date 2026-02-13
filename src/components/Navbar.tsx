@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { Sparkles, User } from 'lucide-react';
+import { Sparkles, User, Menu } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,22 +11,30 @@ import {
 
 interface NavbarProps {
   showProfile?: boolean;
+  onMenuClick?: () => void;
 }
 
-export const Navbar = ({ showProfile = false }: NavbarProps) => {
+export const Navbar = ({ showProfile = false, onMenuClick }: NavbarProps) => {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-          <Sparkles className="h-6 w-6 text-primary" />
+        <div className="flex items-center gap-3">
+          {onMenuClick && (
+            <Button variant="ghost" size="icon" className="md:hidden" onClick={onMenuClick}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
+          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
+            <Sparkles className="h-6 w-6 text-primary" />
             <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            FinZora
-          </span>
-        </Link>
+              FinZora
+            </span>
+          </Link>
+        </div>
 
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          
+
           {showProfile && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
