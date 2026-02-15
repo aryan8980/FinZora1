@@ -15,6 +15,82 @@ console.log('🔌 API Service Initialized');
 console.log('   Base URL:', API_BASE_URL);
 
 // ============================================================================
+// NOTIFICATION & ALERT API
+// ============================================================================
+
+/**
+ * Save FCM token to backend
+ * @param token - Firebase Cloud Messaging token
+ */
+export const saveFcmToken = async (token: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/notifications/save-token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token })
+    });
+
+    if (!response.ok) throw new Error('Failed to save FCM token');
+    return await response.json();
+  } catch (error) {
+    console.error('Error saving FCM token:', error);
+    // Don't throw, as this is non-critical for core app function
+  }
+};
+
+/**
+ * Add price alert
+ */
+export const addAlert = async (alert: any) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/alerts/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(alert)
+    });
+    if (!response.ok) throw new Error('Failed to add alert');
+    return await response.json();
+  } catch (error) {
+    console.error('Error adding alert:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get all active alerts
+ */
+export const getAlerts = async () => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/alerts/list`);
+    if (!response.ok) throw new Error('Failed to fetch alerts');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching alerts:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete alert
+ */
+export const deleteAlert = async (id: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/alerts/delete/${id}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) throw new Error('Failed to delete alert');
+    return await response.json();
+  } catch (error) {
+    console.error('Error deleting alert:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
+// INCOME API
+// ============================================================================
+
+// ============================================================================
 // INCOME API
 // ============================================================================
 

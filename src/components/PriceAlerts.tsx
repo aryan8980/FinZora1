@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { requestNotificationPermission, sendSystemNotification } from '@/utils/notifications';
+import { saveFcmToken, addAlert, getAlerts, deleteAlert as apiDeleteAlert } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,6 +48,30 @@ export const PriceAlerts = ({ investments }: PriceAlertsProps) => {
     value: '',
   });
 
+  useEffect(() => {
+    // Load alerts from backend
+    const loadAlerts = async () => {
+      try {
+        const response = await getAlerts();
+        if (response.success && response.data) {
+          setAlerts(response.data);
+        }
+      } catch (error) {
+        console.error("Failed to load alerts", error);
+      }
+    };
+    loadAlerts();
+
+    const setupNotifications = async () => {
+      const token = await requestNotificationPermission();
+      if (token) {
+        await saveFcmToken(token);
+        console.log('Push notifications enabled');
+      }
+    };
+    setupNotifications();
+  }, []);
+
   // Check alerts against current prices
   useEffect(() => {
     alerts.forEach(alert => {
@@ -89,39 +115,53 @@ export const PriceAlerts = ({ investments }: PriceAlertsProps) => {
           title: '🔔 Price Alert Triggered!',
           description: message,
         });
+        sendSystemNotification('Price Alert Triggered!', message);
       }
     });
   }, [investments, alerts, toast]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const investment = investments.find(inv => inv.id === formData.investmentId);
     if (!investment) return;
 
-    const newAlert: PriceAlert = {
-      id: Date.now().toString(),
+    const newAlert: any = {
       investmentId: formData.investmentId,
       investmentName: investment.name,
+      symbol: investment.symbol, // Add symbol for backend monitoring
       type: formData.type,
       value: parseFloat(formData.value),
-      triggered: false,
     };
 
-    setAlerts([...alerts, newAlert]);
-    toast({ title: 'Alert created successfully!' });
-    
-    setFormData({
-      investmentId: '',
-      type: 'target',
-      value: '',
-    });
-    setIsAddOpen(false);
+    try {
+      const result = await addAlert(newAlert);
+      if (result.success) {
+        setAlerts([...alerts, { ...newAlert, id: result.id, triggered: false }]);
+        toast({ title: 'Alert created successfully!' });
+
+        setFormData({
+          investmentId: '',
+          type: 'target',
+          value: '',
+        });
+        setIsAddOpen(false);
+      }
+    } catch (error) {
+      toast({ title: 'Failed to create alert', variant: 'destructive' });
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setAlerts(alerts.filter(alert => alert.id !== id));
-    toast({ title: 'Alert deleted' });
+  const handleDelete = async (id: string) => {
+    try {
+      const result = await apiDeleteAlert(id);
+      if (result.success) {
+        setAlerts(alerts.filter(alert => alert.id !== id));
+        toast({ title: 'Alert deleted' });
+      }
+    } catch (error) {
+      toast({ title: 'Failed to delete alert', variant: 'destructive' });
+    }
   };
 
   const getAlertIcon = (type: string) => {
@@ -173,7 +213,7 @@ export const PriceAlerts = ({ investments }: PriceAlertsProps) => {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div>
                 <Label htmlFor="type">Alert Type</Label>
                 <Select
@@ -227,11 +267,10 @@ export const PriceAlerts = ({ investments }: PriceAlertsProps) => {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className={`p-4 rounded-lg border ${
-                  alert.triggered 
-                    ? 'bg-primary/10 border-primary' 
-                    : 'bg-card border-border'
-                }`}
+                className={`p-4 rounded-lg border ${alert.triggered
+                  ? 'bg-primary/10 border-primary'
+                  : 'bg-card border-border'
+                  }`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start gap-3">

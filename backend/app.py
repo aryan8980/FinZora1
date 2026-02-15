@@ -558,6 +558,7 @@ def update_crypto_prices():
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
 @app.route('/api/crypto/delete/<crypto_id>', methods=['DELETE'])
 def delete_crypto(crypto_id):
     """Delete crypto from portfolio"""
@@ -569,6 +570,66 @@ def delete_crypto(crypto_id):
             return jsonify({'success': False, 'message': 'Failed to delete crypto'}), 400
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ============================================================================
+# ALERT ENDPOINTS & FCM
+# ============================================================================
+
+@app.route('/api/notifications/save-token', methods=['POST'])
+def save_fcm_token():
+    """Save FCM token for push notifications"""
+    try:
+        data = request.get_json()
+        token = data.get('token')
+        if not token:
+            return jsonify({'success': False, 'message': 'Token required'}), 400
+        
+        success = firebase_service.save_fcm_token(token)
+        return jsonify({'success': success}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/alerts/add', methods=['POST'])
+def add_alert():
+    """Add new price alert"""
+    try:
+        data = request.get_json()
+        # Basic validation could go here
+        
+        alert_record = {
+            'investmentId': data.get('investmentId'),
+            'investmentName': data.get('investmentName'),
+            'symbol': data.get('symbol'),
+            'type': data.get('type'),
+            'value': float(data.get('value')),
+            'triggered': False,
+            'created_at': datetime.now().isoformat()
+        }
+        
+        alert_id = firebase_service.add_alert(alert_record)
+        return jsonify({'success': True, 'id': alert_id}), 201
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/alerts/list', methods=['GET'])
+def get_alerts():
+    """Get all active alerts"""
+    try:
+        alerts = firebase_service.get_alerts()
+        return jsonify({'success': True, 'data': alerts}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/api/alerts/delete/<alert_id>', methods=['DELETE'])
+def delete_alert(alert_id):
+    """Delete alert"""
+    try:
+        success = firebase_service.delete_alert(alert_id)
+        return jsonify({'success': success}), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 
 
 # ============================================================================

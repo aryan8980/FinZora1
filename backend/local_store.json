@@ -8,12 +8,13 @@
           "symbol": "AAPL",
           "quantity": 10.0,
           "buy_price": 175.0,
-          "current_price": 175.0,
-          "profit_loss": 0.0,
+          "current_price": 255.78,
+          "profit_loss": 807.8,
           "date": "2026-02-12T05:10:30.070Z",
           "timestamp": "2026-02-12T10:40:30.789303",
           "price_warning": "Could not fetch live price. Using buy price as current value.",
-          "id": "ec789f59cae841daa7a5b71e0c1847d9"
+          "id": "ec789f59cae841daa7a5b71e0c1847d9",
+          "last_updated": "2026-02-15T18:40:11.326076"
         }
       ]
     }

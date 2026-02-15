@@ -479,3 +479,98 @@ class FirebaseService:
             print(f"Error deleting crypto: {str(e)}")
             return False
 
+
+    # ========================================================================
+    # NOTIFICATION OPERATIONS
+    # ========================================================================
+
+    def save_fcm_token(self, token):
+        """
+        Save FCM token for the user.
+        Args: token (str)
+        """
+        try:
+            if self.use_local or not self.db:
+                print(f"Local mode: FCM token would be saved: {token}")
+                return True
+
+            # Use set with merge=True to update or create
+            self.db.collection('users').document(self.user_id).set({
+                'fcm_token': token,
+                'last_token_update': datetime.now().isoformat()
+            }, merge=True)
+            return True
+        except Exception as e:
+            print(f"Error saving FCM token: {str(e)}")
+            return False
+
+    def get_user_fcm_tokens(self, user_id=None):
+        """
+        Get FCM token for a user.
+        """
+        target_user = user_id or self.user_id
+        try:
+            if self.use_local or not self.db:
+                return None
+
+            doc = self.db.collection('users').document(target_user).get()
+            if doc.exists:
+                return doc.to_dict().get('fcm_token')
+            return None
+        except Exception as e:
+            print(f"Error retrieving FCM token: {str(e)}")
+            return None
+
+    def add_alert(self, alert_record):
+        """
+        Add price alert to user.
+        Args: alert_record (dict)
+        Returns: doc_id (str)
+        """
+        try:
+            if self.use_local or not self.db:
+                print("Local mode: Alert saving mocked")
+                return "local_alert_id"
+
+            doc_ref = self.db.collection('users').document(self.user_id)\
+                      .collection('alerts').add(alert_record)
+            return doc_ref[1].id
+        except Exception as e:
+            print(f"Error adding alert: {str(e)}")
+            raise
+
+    def get_alerts(self):
+        """
+        Retrieve user's active alerts.
+        Returns: list of alert records
+        """
+        try:
+            if self.use_local or not self.db:
+                return []
+
+            docs = self.db.collection('users').document(self.user_id)\
+                   .collection('alerts').stream()
+            alerts = []
+            for doc in docs:
+                alert = doc.to_dict()
+                alert['id'] = doc.id
+                alerts.append(alert)
+            return alerts
+        except Exception as e:
+            print(f"Error retrieving alerts: {str(e)}")
+            return []
+
+    def delete_alert(self, alert_id):
+        """
+        Delete alert.
+        """
+        try:
+            if self.use_local or not self.db:
+                return True
+
+            self.db.collection('users').document(self.user_id)\
+               .collection('alerts').document(alert_id).delete()
+            return True
+        except Exception as e:
+            print(f"Error deleting alert: {str(e)}")
+            return False
