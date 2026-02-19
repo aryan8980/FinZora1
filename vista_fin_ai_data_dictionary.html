@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vista Fin AI - Data Dictionary</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 900px; margin: 0 auto; padding: 20px; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        h2 { color: #34495e; margin-top: 30px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f8f9fa; color: #2c3e50; font-weight: 600; }
+        tr:hover { background-color: #f5f5f5; }
+        .data-type { color: #e67e22; font-family: monospace; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Vista Fin AI - Data Dictionary</h1>
+
+    <h2>Table 1 – Users</h2>
+    <table>
+        <thead>
+            <tr><th>Field Name</th><th>Data Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><b>uid</b></td><td class="data-type">STRING</td><td>Unique Firebase Authentication ID</td></tr>
+            <tr><td><b>email</b></td><td class="data-type">STRING</td><td>User's email address</td></tr>
+            <tr><td><b>displayName</b></td><td class="data-type">STRING</td><td>Full name of the user</td></tr>
+            <tr><td><b>photoURL</b></td><td class="data-type">STRING</td><td>URL to user's profile picture</td></tr>
+            <tr><td><b>fcm_token</b></td><td class="data-type">STRING</td><td>Firebase Cloud Messaging token for push notifications</td></tr>
+            <tr><td><b>createdAt</b></td><td class="data-type">TIMESTAMP</td><td>Account creation date</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Table 2 – Transactions (Income & Expenses)</h2>
+    <table>
+        <thead>
+            <tr><th>Field Name</th><th>Data Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><b>id</b></td><td class="data-type">STRING</td><td>Unique transaction identifier</td></tr>
+            <tr><td><b>type</b></td><td class="data-type">STRING</td><td>Transaction type ('income' or 'expense')</td></tr>
+            <tr><td><b>amount</b></td><td class="data-type">NUMBER</td><td>Monetary value of the transaction</td></tr>
+            <tr><td><b>category</b></td><td class="data-type">STRING</td><td>Expense category (e.g., 'Food', 'Rent') or Income source</td></tr>
+            <tr><td><b>description</b></td><td class="data-type">STRING</td><td>Optional details about the transaction</td></tr>
+            <tr><td><b>date</b></td><td class="data-type">STRING</td><td>Date of transaction (ISO 8601 format)</td></tr>
+            <tr><td><b>merchant</b></td><td class="data-type">STRING</td><td>Name of the merchant (for expenses)</td></tr>
+            <tr><td><b>source</b></td><td class="data-type">STRING</td><td>Source of income (for income records)</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Table 3 – Stocks (Portfolio)</h2>
+    <table>
+        <thead>
+            <tr><th>Field Name</th><th>Data Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><b>id</b></td><td class="data-type">STRING</td><td>Unique stock holding identifier</td></tr>
+            <tr><td><b>symbol</b></td><td class="data-type">STRING</td><td>Stock ticker symbol (e.g., 'AAPL', 'RELIANCE')</td></tr>
+            <tr><td><b>quantity</b></td><td class="data-type">NUMBER</td><td>Number of shares held</td></tr>
+            <tr><td><b>buy_price</b></td><td class="data-type">NUMBER</td><td>Average purchase price per share</td></tr>
+            <tr><td><b>current_price</b></td><td class="data-type">NUMBER</td><td>Real-time market price per share</td></tr>
+            <tr><td><b>profit_loss</b></td><td class="data-type">NUMBER</td><td>Calculated P&L ((Current - Buy) * Quantity)</td></tr>
+            <tr><td><b>price_warning</b></td><td class="data-type">STRING</td><td>Warning message if live price fetch fails</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Table 4 – Crypto</h2>
+    <table>
+        <thead>
+            <tr><th>Field Name</th><th>Data Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><b>id</b></td><td class="data-type">STRING</td><td>Unique crypto holding identifier</td></tr>
+            <tr><td><b>coin_id</b></td><td class="data-type">STRING</td><td>CoinGecko API ID (e.g., 'bitcoin')</td></tr>
+            <tr><td><b>symbol</b></td><td class="data-type">STRING</td><td>Token symbol (e.g., 'BTC')</td></tr>
+            <tr><td><b>name</b></td><td class="data-type">STRING</td><td>Full name of the cryptocurrency</td></tr>
+            <tr><td><b>quantity</b></td><td class="data-type">NUMBER</td><td>Amount of coins held</td></tr>
+            <tr><td><b>buy_price</b></td><td class="data-type">NUMBER</td><td>Purchase price per unit</td></tr>
+            <tr><td><b>current_price</b></td><td class="data-type">NUMBER</td><td>Live market price</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Table 5 – Alerts</h2>
+    <table>
+        <thead>
+            <tr><th>Field Name</th><th>Data Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><b>id</b></td><td class="data-type">STRING</td><td>Unique alert identifier</td></tr>
+            <tr><td><b>investmentId</b></td><td class="data-type">STRING</td><td>ID of the stock/crypto being monitored</td></tr>
+            <tr><td><b>symbol</b></td><td class="data-type">STRING</td><td>Ticker symbol or coin ID</td></tr>
+            <tr><td><b>type</b></td><td class="data-type">STRING</td><td>Alert condition type (e.g., 'target_price')</td></tr>
+            <tr><td><b>value</b></td><td class="data-type">NUMBER</td><td>Target price value to trigger alert</td></tr>
+            <tr><td><b>triggered</b></td><td class="data-type">BOOLEAN</td><td>Status flag (true if alert has been sent)</td></tr>
+            <tr><td><b>created_at</b></td><td class="data-type">TIMESTAMP</td><td>Timestamp when alert was set</td></tr>
+        </tbody>
+    </table>
+
+    <h2>Table 6 – Budgets</h2>
+    <table>
+        <thead>
+            <tr><th>Field Name</th><th>Data Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><b>id</b></td><td class="data-type">STRING</td><td>Unique budget identifier (usually same as category)</td></tr>
+            <tr><td><b>category</b></td><td class="data-type">STRING</td><td>Expense category name</td></tr>
+            <tr><td><b>limit</b></td><td class="data-type">NUMBER</td><td>Monthly spending limit for the category</td></tr>
+            <tr><td><b>updatedAt</b></td><td class="data-type">TIMESTAMP</td><td>Last update timestamp</td></tr>
+        </tbody>
+    </table>
+</body>
+</html>

@@ -1,0 +1,35 @@
+@startuml
+skinparam componentStyle uml2
+left to right direction
+
+actor "User" as user
+
+package "Vista Fin AI System" {
+    component "Frontend App\n(React + Vite)" as Frontend
+    component "Backend API\n(Flask)" as Backend
+    component "Database\n(Firestore)" as DB
+    component "AI Processor" as AI
+    component "Alert Manager" as Alerts
+}
+
+cloud "External Services" {
+    component "Firebase Auth" as Auth
+    component "Gemini AI" as Gemini
+    component "Stock Market API" as Stock
+    component "Firebase Cloud Messaging" as FCM
+}
+
+user --> Frontend : Uses via Browser
+
+Frontend --> Auth : Authenticate
+Frontend --> Backend : REST API Calls
+Frontend <.. FCM : Receive Notifications
+
+Backend --> DB : Read/Write User Data
+Backend --> AI : Request Advice
+Backend --> Alerts : Monitor Conditions
+
+AI --> Gemini : Generate Content
+Alerts --> Stock : Fetch Live Prices
+Alerts --> FCM : Trigger Notification
+@enduml

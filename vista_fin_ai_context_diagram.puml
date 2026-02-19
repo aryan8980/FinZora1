@@ -1,0 +1,29 @@
+@startuml
+skinparam packageStyle rectangle
+top to bottom direction
+
+actor "User" as user
+
+rectangle "Vista Fin AI Platform" {
+  usecase "User Authentication" as UC1
+  usecase "Portfolio Tracking" as UC2
+  usecase "AI Financial Chat" as UC3
+  usecase "Expense Management" as UC4
+  usecase "Price Alerts" as UC5
+}
+
+actor "Stock Market API" as stock <<External>>
+actor "Google Gemini AI" as ai <<External>>
+actor "Firebase / Email Service" as email <<External>>
+
+user --> UC1
+user --> UC2
+user --> UC3
+user --> UC4
+user --> UC5
+
+UC1 --> email : "Verify Email"
+UC2 --> stock : "Fetch Live Prices"
+UC3 --> ai : "Process Query"
+UC5 --> email : "Send Notification"
+@enduml

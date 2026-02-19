@@ -1,0 +1,33 @@
+@startuml
+scale 600 width
+hide empty description
+
+[*] --> Created : User defines alert
+
+state "Active (Monitoring)" as Active {
+  [*] --> Idle
+  Idle --> FetchingPrice : Timer Tick
+  FetchingPrice --> CheckingCondition : Price Received
+  CheckingCondition --> Idle : Condition False
+}
+
+Created --> Active : Enable Alert
+
+Active --> Triggered : Condition True
+state Triggered {
+  [*] --> LoggingEvent
+  LoggingEvent --> SendingNotification : Log Saved
+}
+
+Triggered --> Notified : Push Notification Sent
+
+state Notified {
+  [*] --> WaitingForAction
+  WaitingForAction --> Viewed : User Clicks Alert
+}
+
+Viewed --> Archived : Dismiss
+Viewed --> Active : Reset/Snooze
+
+Archived --> [*]
+@enduml

@@ -8,7 +8,7 @@ import { Navbar } from '@/components/Navbar';
 import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 import { auth, googleProvider } from '@/lib/firebase';
 import { disableGuestSession, enableGuestSession } from '@/hooks/use-guest-mode';
 
@@ -18,6 +18,35 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      toast({
+        title: 'Email required',
+        description: 'Please enter your email address to reset your password.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: 'Reset email sent',
+        description: 'Check your inbox for password reset instructions.',
+      });
+    } catch (error) {
+      console.error('Reset password error', error);
+      toast({
+        title: 'Error',
+        description: (error as { message?: string }).message ?? 'Failed to send reset email.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -82,10 +111,10 @@ export default function Login() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      
+
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center p-4">
         <div className="absolute inset-0 gradient-hero opacity-50" />
-        
+
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -102,7 +131,7 @@ export default function Login() {
               <CardTitle className="text-3xl font-bold">Welcome Back</CardTitle>
               <CardDescription>Sign in to continue your financial journey</CardDescription>
             </CardHeader>
-            
+
             <CardContent className="space-y-6">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
@@ -116,9 +145,19 @@ export default function Login() {
                     className="bg-background"
                   />
                 </div>
-                
+
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Password</Label>
+                    <Button
+                      variant="link"
+                      className="px-0 font-normal text-xs h-auto"
+                      onClick={handleForgotPassword}
+                      type="button"
+                    >
+                      Forgot password?
+                    </Button>
+                  </div>
                   <Input
                     id="password"
                     type="password"
@@ -154,9 +193,9 @@ export default function Login() {
                   Sign in with Google
                 </Button>
 
-                <Button 
-                  type="button" 
-                  variant="outline" 
+                <Button
+                  type="button"
+                  variant="outline"
                   className="w-full"
                   onClick={handleGuestLogin}
                   disabled={isLoading}

@@ -1,0 +1,19 @@
+@startgantt
+title Gantt Chart: Video Conferencing Project
+
+Project starts the 1st of June 2026
+
+[Requirement Gathering & Analysis] lasts 1 week
+[System Design & Architecture] starts at [Requirement Gathering & Analysis]'s end and lasts 2 weeks
+[Frontend Setup (React + Next.js)] starts at [System Design & Architecture]'s start + 1 week and lasts 2 weeks
+[Backend Setup (Convex, APIs)] starts at [Frontend Setup (React + Next.js)]'s start + 1 week and lasts 2 weeks
+[Login/Signup Module] starts at [Backend Setup (Convex, APIs)]'s start + 1 week and lasts 1 week
+[Video Call & Screen Share Module] starts at [Login/Signup Module]'s end and lasts 2 weeks
+[Coding Test Module] starts at [Video Call & Screen Share Module]'s start + 1 week and lasts 1 week
+[Scheduling & Calendar Module] starts at [Video Call & Screen Share Module]'s end and lasts 1 week
+[Meeting Recording & Storage] starts at [Scheduling & Calendar Module]'s end and lasts 1 week
+[Candidate Review Module] starts at [Meeting Recording & Storage]'s end and lasts 1 week
+[Testing & Bug Fixing] starts at [Candidate Review Module]'s end and lasts 1 week
+[Deployment & Documentation] starts at [Testing & Bug Fixing]'s end and lasts 1 week
+
+@endgantt

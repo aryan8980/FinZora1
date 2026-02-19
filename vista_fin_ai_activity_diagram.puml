@@ -1,0 +1,47 @@
+@startuml
+|User|
+start
+:Login / Signup;
+|System|
+:Authenticate User;
+if (Valid Credentials?) then (no)
+  |User|
+  :Show Error;
+  stop
+else (yes)
+  |System|
+  :Load Dashboard;
+endif
+
+|User|
+:Select Action;
+split
+  :Add Transaction;
+  |System|
+  :Save to Database;
+  :Update Budget Status;
+split again
+  :Ask AI Advisor;
+  |AI Engine|
+  :Process Query;
+  :Generate Financial Advice;
+  |System|
+  :Display AI Response;
+split again
+  :Set Price Alert;
+  |System|
+  :Monitor Stock Prices;
+  if (Target Price Hit?) then (yes)
+    :Send Push Notification;
+    |User|
+    :Receive Alert;
+  else (no)
+    |System|
+    :Continue Monitoring;
+  endif
+end split
+
+|User|
+:Logout;
+stop
+@enduml

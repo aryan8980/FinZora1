@@ -1,0 +1,24 @@
+usecaseDiagram
+    actor "User" as U
+    package "Vista Fin AI System" {
+        usecase "Sign Up / Login" as UC1
+        usecase "View Dashboard" as UC2
+        usecase "Add Transaction" as UC3
+        usecase "View Portfolio" as UC4
+        usecase "Set Price Alert" as UC5
+        usecase "Chat with AI Advisor" as UC6
+        usecase "Set Budget Limit" as UC7
+        usecase "Receive Notifications" as UC8
+        usecase "Analyze Investments" as UC9
+    }
+
+    U --> UC1
+    U --> UC2
+    U --> UC3
+    U --> UC4
+    U --> UC5
+    U --> UC6
+    U --> UC7
+    U --> UC9
+    
+    UC5 ..> UC8 : Triggers

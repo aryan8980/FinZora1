@@ -1,0 +1,50 @@
+@startuml
+object "User1 : User" as u1 {
+  userId = "u_123"
+  name = "John Doe"
+  email = "john@example.com"
+  role = "Investor"
+}
+
+object "Transaction1 : Transaction" as t1 {
+  transactionId = "tx_001"
+  type = "Income"
+  amount = 5000.00
+  category = "Salary"
+  date = "2026-02-15"
+}
+
+object "Transaction2 : Transaction" as t2 {
+  transactionId = "tx_002"
+  type = "Expense"
+  amount = 120.00
+  category = "Groceries"
+  date = "2026-02-16"
+}
+
+object "Investment1 : Investment" as inv1 {
+  investmentId = "inv_555"
+  symbol = "AAPL"
+  quantity = 10
+  buyPrice = 145.50
+}
+
+object "PriceAlert1 : PriceAlert" as a1 {
+  alertId = "alt_999"
+  symbol = "AAPL"
+  targetPrice = 180.00
+  condition = "Above"
+}
+
+object "AIAdvisor1 : AIAdvisor" as ai1 {
+  sessionId = "sess_777"
+  status = "Active"
+}
+
+u1 -- t1 : created
+u1 -- t2 : created
+u1 -- inv1 : owns
+u1 -- a1 : set
+u1 -- ai1 : consults
+
+@enduml

@@ -1,0 +1,44 @@
+@startuml
+skinparam packageStyle rectangle
+left to right direction
+
+package "Frontend (React)" {
+    package "Components" {
+        [Charts]
+        [Forms]
+        [Nav]
+    }
+    package "Pages" {
+        [Dashboard]
+        [Investments]
+        [Chat Interface]
+    }
+    package "Services (Client)" {
+        [AuthService]
+        [ApiService]
+    }
+}
+
+package "Backend (Flask)" {
+    package "Controllers" {
+        [AuthController]
+        [FinanceController]
+        [AIController]
+    }
+    package "Core Logic" {
+        [GeminiEngine]
+        [StockFetcher]
+        [AlertManager]
+    }
+}
+
+package "Data Access" {
+    [FirebaseSDK]
+}
+
+[Pages] ..> [Components] : Uses
+[Pages] ..> [Services (Client)] : Calls
+[Services (Client)] <..> [Controllers] : HTTP/JSON
+[Controllers] ..> [Core Logic] : Invokes
+[Core Logic] ..> [Data Access] : Persists
+@enduml

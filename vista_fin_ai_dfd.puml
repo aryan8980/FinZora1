@@ -1,0 +1,41 @@
+@startuml
+skinparam packageStyle rectangle
+top to bottom direction
+
+actor "User" as User
+
+rectangle "Vista Fin AI System" {
+    rectangle "1.0 Auth Module" as Auth
+    rectangle "2.0 Dashboard &\nFinance Manager" as Finance
+    rectangle "3.0 AI Processor" as AI
+    rectangle "4.0 Alert System" as Alert
+    
+    database "User DB" as UserDB
+    database "Transaction DB" as TxnDB
+}
+
+agent "Stock API" as StockAPI
+agent "Gemini AI" as Gemini
+agent "Email Service" as Email
+
+User --> Auth : Login/Signup Data
+Auth --> User : Token
+Auth <--> UserDB : Validate/Store User
+
+User --> Finance : Add Transaction / View Data
+Finance <--> TxnDB : Expenses / Investments
+Finance --> StockAPI : Request Prices
+StockAPI --> Finance : Market Data
+Finance --> User : Financial Overview
+
+User --> AI : Financial Query
+AI --> Finance : Get Context (Portfolio)
+AI --> Gemini : Prompt
+Gemini --> AI : Advice
+AI --> User : Response
+
+User --> Alert : Set Price Target
+Alert --> TxnDB : Save Rule
+Alert --> StockAPI : Monitor Prices
+Alert --> Email : Notification
+@enduml

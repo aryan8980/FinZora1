@@ -1,0 +1,35 @@
+@startuml
+left to right direction
+
+node "User Device" {
+    component "Web Browser" as Browser {
+        artifact "Vista Fin AI SPA"
+    }
+}
+
+node "Frontend Host\n(Vercel/Netlify)" as CDN {
+    component "Assert Server"
+}
+
+node "Backend Server\n(Cloud Run / VPS)" as Backend {
+    component "Flask API"
+    component "AI Engine"
+    component "Alert Service"
+}
+
+cloud "Google Cloud / Firebase" as Cloud {
+    database "Firestore DB"
+    component "Firebase Auth"
+    component "Gemini API"
+}
+
+cloud "External APIs" {
+    component "Stock Market API"
+    component "Email Service"
+}
+
+Browser -- CDN : HTTPS (Load Assets)
+Browser -- Backend : HTTPS (API Calls)
+Backend -- Cloud : SDK/API
+Backend -- "External APIs" : REST
+@enduml

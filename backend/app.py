@@ -19,7 +19,10 @@ from stock_service import StockService
 from crypto_service import CryptoService
 from chat_service import ChatService
 from budget_service import BudgetService
+from email_service import EmailService
 from validations import validate_transaction, validate_stock_input
+import random
+import string
 
 # Load environment variables from .env file
 load_dotenv()
@@ -36,6 +39,7 @@ stock_service = StockService()
 crypto_service = CryptoService()
 chat_service = ChatService()
 budget_service = BudgetService(firebase_service)
+email_service = EmailService()
 
 # ============================================================================
 # STARTUP VERIFICATION
@@ -75,6 +79,67 @@ def health_check():
         'api_key_configured': api_key != 'demo',
         'firebase_available': firebase_service.db is not None or getattr(firebase_service, 'use_local', False)
     }), 200
+
+
+# ============================================================================
+# AUTHENTICATION ENDPOINTS
+# ============================================================================
+
+@app.route('/api/auth/send-otp', methods=['POST'])
+def send_otp():
+    """
+    Generate and send OTP to user's email
+    Expected JSON: { email }
+    """
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        
+        if not email:
+            return jsonify({'success': False, 'message': 'Email is required'}), 400
+            
+        # Generate 6-digit OTP
+        otp_code = ''.join(random.choices(string.digits, k=6))
+        
+        # Save OTP to database
+        if firebase_service.save_otp(email, otp_code):
+            # Send email
+            email_sent = email_service.send_otp(email, otp_code)
+            
+            if email_sent:
+                return jsonify({'success': True, 'message': 'OTP sent successfully'}), 200
+            else:
+                return jsonify({'success': True, 'message': 'OTP generated (Email failed, check console)', 'dev_otp': otp_code}), 200
+        else:
+            return jsonify({'success': False, 'message': 'Failed to generate OTP'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/auth/verify-otp', methods=['POST'])
+def verify_otp():
+    """
+    Verify OTP provided by user
+    Expected JSON: { email, otp }
+    """
+    try:
+        data = request.get_json()
+        email = data.get('email')
+        otp = data.get('otp')
+        
+        if not email or not otp:
+            return jsonify({'success': False, 'message': 'Email and OTP are required'}), 400
+            
+        success, message = firebase_service.verify_otp(email, otp)
+        
+        if success:
+            return jsonify({'success': True, 'message': message}), 200
+        else:
+            return jsonify({'success': False, 'message': message}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 # ============================================================================

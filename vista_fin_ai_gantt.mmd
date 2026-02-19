@@ -1,0 +1,19 @@
+%%{init: { 'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'edgeLabelBackground':'#ffffff', 'tertiaryColor': '#fff', 'mainBkg': '#ffffff', 'nodeBorder': '#000000' } } }%%
+gantt
+    title Vista Fin AI: Development Sprint
+    dateFormat YYYY-MM-DD
+    axisFormat %a %d
+    todayMarker off
+    
+    section UI Refinement
+    Analyze Investments Page       :done,    task1, 2026-02-10, 1d
+    Remove Crypto Components       :done,    task2, after task1, 1d
+    Layout Improvements            :done,    task3, after task2, 1d
+    
+    section Notifications System
+    Backend Alert Service (Python) :done,    task4, 2026-02-12, 2d
+    Alert Persistence (DB)         :done,    task5, after task4, 2d
+    FCM Integration                :done,    task6, after task5, 1d
+    
+    section Verification
+    System Testing                 :active,  task7, after task6, 1d

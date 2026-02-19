@@ -1,0 +1,39 @@
+@startuml
+actor User
+participant "Vista UI" as UI
+participant "Vista API" as API
+database "Firebase\n(Auth & DB)" as DB
+participant "Gemini AI" as AI
+participant "Stock API" as Stock
+
+== Authentication ==
+User -> UI : Login / Signup
+UI -> API : Auth Request
+API -> DB : Validate Credentials
+DB --> API : User Profile
+API --> UI : Auth Token & Session
+
+== Dashboard Loading ==
+UI -> API : Get Dashboard Data
+API -> DB : Fetch Transactions & Portfolio
+DB --> API : User Data
+API -> Stock : Get Real-time Prices
+Stock --> API : Market Data
+API --> UI : JSON Response
+UI -> User : Display Dashboard
+
+== AI Financial Advice ==
+User -> UI : Ask "How can I differ expenses?"
+UI -> API : Send Query
+API -> AI : Process Prompt + Context
+AI --> API : Investment Strategy / Advice
+API --> UI : AI Response
+UI -> User : Show Advice
+
+== Set Price Alert ==
+User -> UI : Set Alert (AAPL > $200)
+UI -> API : Create Alert Request
+API -> DB : Save Alert Rule
+DB --> API : Confirmation
+API --> UI : Success Message
+@enduml

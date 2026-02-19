@@ -574,3 +574,96 @@ class FirebaseService:
         except Exception as e:
             print(f"Error deleting alert: {str(e)}")
             return False
+
+    # ========================================================================
+    # AUTHENTICATION & OTP OPERATIONS
+    # ========================================================================
+
+    def save_otp(self, email, otp_code):
+        """
+        Save OTP for a user with expiration.
+        Args:
+            email (str): User's email
+            otp_code (str): Generated OTP
+        """
+        try:
+            expiration = datetime.now().timestamp() + 600  # Expires in 10 minutes
+            
+            # Simple in-memory/local storage for now if using local mode
+            # In production properly, this should go to a dedicated collection
+            otp_data = {
+                'otp': otp_code,
+                'email': email,
+                'expires_at': expiration,
+                'created_at': datetime.now().isoformat()
+            }
+            
+            if self.use_local or not self.db:
+                data = self._read_local()
+                # Store OTPs in a top-level 'otps' key
+                if 'otps' not in data:
+                    data['otps'] = {}
+                data['otps'][email] = otp_data
+                self._write_local(data)
+                return True
+
+            # Save to 'otps' collection in Firestore (keyed by email for easy lookup)
+            # Note: Email in document ID should be sanitized/hashed in real prod, 
+            # but for this scale direct email is fine or we query.
+            # We'll use a collection 'otps'
+            self.db.collection('otps').document(email).set(otp_data)
+            return True
+            
+        except Exception as e:
+            print(f"Error saving OTP: {str(e)}")
+            return False
+
+    def verify_otp(self, email, otp_code):
+        """
+        Verify the OTP provided by the user.
+        Args:
+            email (str): User's email
+            otp_code (str): OTP to check
+        Returns:
+            bool: True if valid, False otherwise
+            str: Message
+        """
+        try:
+            if self.use_local or not self.db:
+                data = self._read_local()
+                otps = data.get('otps', {})
+                record = otps.get(email)
+                
+                if not record:
+                    return False, "No OTP found. Please request a new one."
+                
+                if float(record['expires_at']) < datetime.now().timestamp():
+                    return False, "OTP has expired. Please request a new one."
+                
+                if record['otp'] != otp_code:
+                    return False, "Invalid OTP code."
+                
+                # Cleanup after success
+                del data['otps'][email]
+                self._write_local(data)
+                return True, "OTP verified successfully."
+
+            doc = self.db.collection('otps').document(email).get()
+            if not doc.exists:
+                return False, "No OTP found. Please request a new one."
+            
+            record = doc.to_dict()
+            if float(record['expires_at']) < datetime.now().timestamp():
+                return False, "OTP has expired. Please request a new one."
+            
+            if record['otp'] != otp_code:
+                return False, "Invalid OTP code."
+            
+            # Cleanup
+            self.db.collection('otps').document(email).delete()
+            return True, "OTP verified successfully."
+            
+        except Exception as e:
+            print(f"Error verifying OTP: {str(e)}")
+            return False, f"Verification failed: {str(e)}"
+

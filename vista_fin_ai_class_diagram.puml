@@ -1,0 +1,64 @@
+@startuml
+skinparam classAttributeIconSize 0
+hide circle
+
+class "User" {
+  -userId : UUID
+  -name : String
+  -email : String
+  -password : String
+  +login()
+  +signup()
+  +addTransaction()
+  +setBudget()
+}
+
+class "Transaction" {
+  -transactionId : UUID
+  -amount : Decimal
+  -type : String
+  -category : String
+  -date : DateTime
+  +save()
+  +delete()
+}
+
+class "Investment" {
+  -investmentId : UUID
+  -symbol : String
+  -quantity : Decimal
+  -buyPrice : Decimal
+  +updateValue()
+  +sell()
+}
+
+class "Budget" {
+  -budgetId : UUID
+  -category : String
+  -limit : Decimal
+  -startDate : Date
+  +checkExceeded() : Boolean
+}
+
+class "AIAdvisor" {
+  -sessionId : UUID
+  -chatHistory : List<Message>
+  +getAdvice(query: String) : String
+  +analyzePortfolio() : String
+}
+
+class "PriceAlert" {
+  -alertId : UUID
+  -symbol : String
+  -targetPrice : Decimal
+  +checkCondition() : Boolean
+  +sendNotification()
+}
+
+User "1" --> "0..*" Transaction : tracks
+User "1" --> "0..*" Investment : holds
+User "1" --> "0..*" Budget : sets
+User "1" --> "0..*" PriceAlert : monitors
+User "1" ..> "1" AIAdvisor : consults
+
+@enduml

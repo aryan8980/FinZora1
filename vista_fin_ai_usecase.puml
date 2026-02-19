@@ -1,0 +1,25 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+actor "User" as u
+package "Vista Fin AI System" {
+  usecase "Sign Up / Login" as UC1
+  usecase "View Dashboard" as UC2
+  usecase "Add Transaction" as UC3
+  usecase "View Portfolio" as UC4
+  usecase "Set Price Alert" as UC5
+  usecase "Chat with AI Advisor" as UC6
+  usecase "Set Budget Limit" as UC7
+  usecase "Receive Notifications" as UC8
+  usecase "Analyze Investments" as UC9
+}
+u --> UC1
+u --> UC2
+u --> UC3
+u --> UC4
+u --> UC5
+u --> UC6
+u --> UC7
+u --> UC9
+UC5 ..> UC8 : <<include>>
+@enduml

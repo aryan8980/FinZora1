@@ -1,0 +1,58 @@
+@startuml
+hide circle
+skinparam linetype ortho
+
+entity "User" as user {
+  *user_id : UUID <<PK>>
+  --
+  name : varchar
+  email : varchar
+  password_hash : varchar
+  created_at : datetime
+}
+
+entity "Transaction" as txn {
+  *transaction_id : UUID <<PK>>
+  --
+  *user_id : UUID <<FK>>
+  amount : decimal
+  type : varchar
+  category : varchar
+  date : datetime
+  description : text
+}
+
+entity "Investment" as inv {
+  *investment_id : UUID <<PK>>
+  --
+  *user_id : UUID <<FK>>
+  symbol : varchar
+  quantity : decimal
+  buy_price : decimal
+  purchase_date : datetime
+}
+
+entity "PriceAlert" as alert {
+  *alert_id : UUID <<PK>>
+  --
+  *user_id : UUID <<FK>>
+  symbol : varchar
+  target_price : decimal
+  condition : varchar
+  is_active : boolean
+}
+
+entity "Budget" as budget {
+  *budget_id : UUID <<PK>>
+  --
+  *user_id : UUID <<FK>>
+  category : varchar
+  amount_limit : decimal
+  period : varchar
+}
+
+user ||..o{ txn : "tracks"
+user ||..o{ inv : "holds"
+user ||..o{ alert : "sets"
+user ||..o{ budget : "defines"
+@enduml
