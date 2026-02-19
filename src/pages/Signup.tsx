@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { auth, db } from '@/lib/firebase';
 import { disableGuestSession } from '@/hooks/use-guest-mode';
 import { setDoc, doc } from 'firebase/firestore';
+import { sendOtp, verifyOtp } from '@/services/api';
 
 export default function Signup() {
   const [step, setStep] = useState<'details' | 'otp'>('details');
@@ -59,15 +60,7 @@ export default function Signup() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/send-otp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
+      const data = await sendOtp(email);
 
       if (data.success) {
         toast({
@@ -110,12 +103,7 @@ export default function Signup() {
 
     try {
       // 1. Verify OTP
-      const listResponse = await fetch('http://localhost:5000/api/auth/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, otp }),
-      });
-      const verifyData = await listResponse.json();
+      const verifyData = await verifyOtp(email, otp);
 
       if (!verifyData.success) {
         throw new Error(verifyData.message || 'Invalid OTP');

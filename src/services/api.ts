@@ -15,6 +15,47 @@ console.log('🔌 API Service Initialized');
 console.log('   Base URL:', API_BASE_URL);
 
 // ============================================================================
+// AUTHENTICATION API
+// ============================================================================
+
+/**
+ * Send OTP to user's email
+ * @param email - User's email
+ */
+export const sendOtp = async (email: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/send-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error sending OTP:', error);
+    throw error;
+  }
+};
+
+/**
+ * Verify OTP
+ * @param email - User's email
+ * @param otp - OTP code
+ */
+export const verifyOtp = async (email: string, otp: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp })
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Error verifying OTP:', error);
+    throw error;
+  }
+};
+
+// ============================================================================
 // NOTIFICATION & ALERT API
 // ============================================================================
 
