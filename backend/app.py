@@ -12,7 +12,8 @@ os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from datetime import datetime
+from datetime import datetime, timedelta
+from collections import defaultdict
 from firebase_service import FirebaseService
 from ai_categorizer import ExpenseCategorizer
 from stock_service import StockService
@@ -24,13 +25,88 @@ from validations import validate_transaction, validate_stock_input
 import random
 import string
 
+def _parse_iso_date(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except Exception:
+        return None
+
+
+def _median(values):
+    if not values:
+        return None
+    ordered = sorted(values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2 == 1:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def detect_recurring_subscriptions(expenses, min_occurrences=3, interval_target=30, interval_tolerance=6, amount_tolerance=0.1):
+    grouped = defaultdict(list)
+    for exp in expenses:
+        merchant = (exp.get('merchant') or '').strip().lower()
+        date_val = _parse_iso_date(exp.get('date'))
+        amount = exp.get('amount')
+        if not merchant or not date_val or amount is None:
+            continue
+        grouped[merchant].append((date_val, float(amount)))
+
+    results = []
+    for merchant, items in grouped.items():
+        if len(items) < min_occurrences:
+            continue
+        items.sort(key=lambda x: x[0])
+        dates = [d for d, _ in items]
+        amounts = [a for _, a in items]
+
+        intervals = [(dates[i] - dates[i - 1]).days for i in range(1, len(dates))]
+        median_interval = _median(intervals)
+        if median_interval is None:
+            continue
+        if not (interval_target - interval_tolerance <= median_interval <= interval_target + interval_tolerance):
+            continue
+
+        median_amount = _median(amounts)
+        if not median_amount or median_amount == 0:
+            continue
+
+        # Basic amount consistency check to reduce false positives.
+        consistent = [a for a in amounts if abs(a - median_amount) / median_amount <= amount_tolerance]
+        if len(consistent) < max(2, int(len(amounts) * 0.7)):
+            continue
+
+        next_expected = dates[-1] + timedelta(days=int(round(median_interval)))
+        results.append({
+            'merchant': merchant,
+            'occurrences': len(items),
+            'average_amount': round(sum(amounts) / len(amounts), 2),
+            'median_interval_days': int(round(median_interval)),
+            'last_charge_date': dates[-1].isoformat(),
+            'next_expected_date': next_expected.isoformat()
+        })
+
+    return results
+
 # Load environment variables from .env file
 load_dotenv()
 
 # Initialize Flask application
 app = Flask(__name__)
-# Enable CORS for all origins (restrict in production if needed)
-CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+# Enable CORS for known frontends to avoid wildcard + credentials issues.
+allowed_origins = [origin.strip() for origin in os.getenv(
+    "CORS_ORIGINS",
+    "https://finzora.vercel.app,http://localhost:5173"
+).split(",") if origin.strip()]
+CORS(
+    app,
+    resources={r"/api/*": {"origins": allowed_origins}},
+    supports_credentials=True,
+    methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"],
+)
 
 # Initialize services
 firebase_service = FirebaseService()
@@ -286,6 +362,22 @@ def get_expense_statistics():
             'success': True,
             'data': stats
         }), 200
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/expense/subscriptions', methods=['GET'])
+def get_subscription_candidates():
+    """
+    Detect recurring subscription-like expenses
+    Query params: min_occurrences (optional, default 3)
+    Returns: { success, data: [subscription_candidates] }
+    """
+    try:
+        min_occ = request.args.get('min_occurrences', default=3, type=int)
+        expenses = firebase_service.get_expenses()
+        subscriptions = detect_recurring_subscriptions(expenses, min_occurrences=min_occ)
+        return jsonify({'success': True, 'data': subscriptions}), 200
     except Exception as e:
         return jsonify({'success': False, 'message': str(e)}), 500
 

@@ -1,0 +1,26 @@
+@startuml
+skinparam packageStyle rectangle
+top to bottom direction
+
+actor "User" as User
+agent "Market Data APIs\n(Finnhub/Yahoo/AlphaVantage)" as MarketAPI
+agent "AI Providers\n(Groq/HF/Gemini)" as AIProviders
+agent "Email/FCM Service" as NotifySvc
+agent "Firebase/Local Store" as DataStore
+
+rectangle "0.0 Vista Fin AI System" as System
+
+User --> System : Login, transactions, queries, alerts
+System --> User : Dashboards, advice, notifications
+
+System --> MarketAPI : Price requests
+MarketAPI --> System : Market data
+
+System --> AIProviders : Prompts with context
+AIProviders --> System : AI responses
+
+System --> NotifySvc : Send OTP/alerts
+NotifySvc --> User : OTP/alert messages
+
+System <--> DataStore : Read/Write user data
+@enduml

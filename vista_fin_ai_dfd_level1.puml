@@ -1,0 +1,54 @@
+@startuml
+skinparam packageStyle rectangle
+top to bottom direction
+
+actor "User" as User
+
+rectangle "Vista Fin AI System" {
+  rectangle "1.0 Authenticate User" as P1
+  rectangle "2.0 Finance Data Management" as P2
+  rectangle "3.0 Portfolio Management" as P3
+  rectangle "4.0 AI Advisor" as P4
+  rectangle "5.0 Alerts & Notifications" as P5
+
+  database "D1 User/Auth Data" as D1
+  database "D2 Transactions (Income/Expenses)" as D2
+  database "D3 Portfolio (Stocks/Crypto)" as D3
+  database "D4 Budgets/Goals" as D4
+  database "D5 Alert Rules" as D5
+}
+
+agent "Market Data APIs\n(Finnhub/Yahoo/AlphaVantage)" as MarketAPI
+agent "AI Providers\n(Groq/HF/Gemini)" as AIProviders
+agent "Email/FCM Service" as NotifySvc
+
+User --> P1 : Login email / OTP
+P1 --> NotifySvc : Send OTP
+P1 <--> D1 : Store/Verify OTP
+P1 --> User : Auth status
+
+User --> P2 : Income/Expense data
+P2 <--> D2 : Store/Retrieve transactions
+P2 <--> D4 : Store/Retrieve budgets
+P2 --> User : Reports, summaries
+
+User --> P3 : Portfolio actions
+P3 <--> D3 : Store/Retrieve holdings
+P3 --> MarketAPI : Price requests
+MarketAPI --> P3 : Market prices
+P3 --> User : Portfolio view
+
+User --> P4 : Financial questions
+P4 --> D2 : Read transactions
+P4 --> D3 : Read portfolio
+P4 --> D4 : Read budgets
+P4 --> AIProviders : Prompt with context
+AIProviders --> P4 : AI response
+P4 --> User : Advice and insights
+
+User --> P5 : Alert rules
+P5 <--> D5 : Save alerts
+P5 --> MarketAPI : Monitor prices
+P5 --> NotifySvc : Send notifications
+NotifySvc --> User : Alert message
+@enduml
