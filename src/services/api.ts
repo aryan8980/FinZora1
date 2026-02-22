@@ -7,7 +7,7 @@
 // Use environment variable or default to localhost
 // Force localhost in development to avoid stale production URL
 // @ts-ignore
-const API_BASE_URL = import.meta.env.DEV
+export const API_BASE_URL = import.meta.env.DEV
   ? 'http://localhost:5000/api'
   : (import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
 

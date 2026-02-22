@@ -57,7 +57,7 @@ class ExpenseCategorizer:
         if self.api_key and len(self.api_key) > 20:
             try:
                 genai.configure(api_key=self.api_key)
-                self.model = genai.GenerativeModel('gemini-1.5-flash')
+                self.model = genai.GenerativeModel('gemini-2.5-flash')
                 self.use_ai = True
                 print("✓ AI Categorizer initialized (Gemini)")
             except Exception as e:

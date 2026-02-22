@@ -97,20 +97,88 @@ export const generateSmartAlerts = (
         });
     }
 
-    // 3. High Value Transaction Detection (Simple Anomaly)
-    const recentTransactions = transactions.filter(t => {
-        const d = new Date(t.date);
-        // Last 3 days
-        return (today.getTime() - d.getTime()) / (1000 * 3600 * 24) <= 3;
-    });
+    // 3. High Value Transaction Detection
+    const thirtyDaysAgo = new Date(today.getTime() - (30 * 24 * 60 * 60 * 1000));
+    const trailingIncome = transactions
+        .filter(t => t.type === 'income' && new Date(t.date) >= thirtyDaysAgo)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const highValueThreshold = trailingIncome > 0 ? trailingIncome * 0.20 : 5000;
+
+    const last3Days = new Date(today.getTime() - (3 * 24 * 60 * 60 * 1000));
+    const recentTransactions = transactions.filter(t => new Date(t.date) >= last3Days);
 
     recentTransactions.forEach(t => {
-        if (t.type === 'expense' && t.amount > 5000) { // Arbitrary large amount threshold for now
+        if (t.type === 'expense' && t.amount > highValueThreshold && t.amount > 1000) {
             alerts.push({
                 id: `high-tx-${t.id}`,
                 type: 'warning',
                 title: 'Large Expense Detected',
-                message: `You spent ₹${t.amount.toLocaleString()} on ${t.category}. was this planned?`,
+                message: `You spent ₹${t.amount.toLocaleString()} on ${t.category}. Was this planned?`,
+                action: 'Review',
+                actionLink: '/transactions',
+            });
+        }
+    });
+
+    // 4. Duplicate Charge Detection
+    const last7Days = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
+    const recentTx = transactions.filter(t => t.type === 'expense' && new Date(t.date) >= last7Days);
+    recentTx.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const checkedDuplicates = new Set<string>();
+
+    for (let i = 0; i < recentTx.length; i++) {
+        for (let j = i + 1; j < recentTx.length; j++) {
+            const tx1 = recentTx[i];
+            const tx2 = recentTx[j];
+
+            if (tx1.amount === tx2.amount && tx1.category === tx2.category && !checkedDuplicates.has(tx1.id) && !checkedDuplicates.has(tx2.id)) {
+                const diffTime = Math.abs(new Date(tx1.date).getTime() - new Date(tx2.date).getTime());
+                const diffHours = diffTime / (1000 * 60 * 60);
+
+                if (diffHours <= 48 && tx1.amount > 0) {
+                    alerts.push({
+                        id: `duplicate-charge-${tx1.id}-${tx2.id}`,
+                        type: 'warning',
+                        title: 'Potential Duplicate Charge',
+                        message: `We noticed two transactions of ₹${tx1.amount.toLocaleString()} for ${tx1.category} within 48 hours.`,
+                        action: 'Review',
+                        actionLink: '/transactions',
+                    });
+                    checkedDuplicates.add(tx1.id);
+                    checkedDuplicates.add(tx2.id);
+                }
+            }
+        }
+    }
+
+    // 5. Anomalous Spending Detection
+    const categorySpending7Days = new Map<string, number>();
+    const categorySpending30Days = new Map<string, number>();
+
+    transactions.filter(t => t.type === 'expense').forEach(t => {
+        const txDate = new Date(t.date);
+        if (txDate >= last7Days && txDate <= today) {
+            categorySpending7Days.set(t.category, (categorySpending7Days.get(t.category) || 0) + t.amount);
+        }
+        if (txDate >= thirtyDaysAgo && txDate <= today) {
+            categorySpending30Days.set(t.category, (categorySpending30Days.get(t.category) || 0) + t.amount);
+        }
+    });
+
+    categorySpending7Days.forEach((spent7Days, category) => {
+        const spent30Days = categorySpending30Days.get(category) || 0;
+        const weeklyAverageObj = spent30Days / 4;
+
+        if (spent7Days > 500 && spent7Days > weeklyAverageObj * 1.5 && weeklyAverageObj > 0) {
+            alerts.push({
+                id: `anomaly-spending-${category}`,
+                type: 'warning',
+                title: 'Spending Spike Detected',
+                message: `You've spent ₹${spent7Days.toLocaleString()} on ${category} this week, visually higher than your usual.`,
+                action: 'Check Budget',
+                actionLink: '/budget',
             });
         }
     });

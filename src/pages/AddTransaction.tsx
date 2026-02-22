@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Camera, Loader2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -26,6 +27,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { categorizeTransaction } from '@/utils/categorizeAI';
+import { API_BASE_URL } from '@/services/api';
 import { appendUserTransaction } from '@/utils/transactionsStorage';
 import type { Transaction } from '@/utils/dummyData';
 import { auth, db } from '@/lib/firebase';
@@ -59,7 +61,9 @@ export default function AddTransaction() {
   // UI State
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
 
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -137,6 +141,70 @@ export default function AddTransaction() {
     }
   };
 
+  const handleReceiptUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsScanning(true);
+    toast({
+      title: 'Scanning Receipt...',
+      description: 'Our AI is extracting the details. This may take a few seconds.',
+    });
+
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+
+        try {
+          // Send to our new backend endpoint using the centralized API_BASE_URL
+          const response = await fetch(`${API_BASE_URL}/receipt/scan`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ image_base64: base64String }),
+          });
+
+          const data = await response.json();
+
+          if (data.success && data.data) {
+            const result = data.data;
+            setType('expense');
+            if (result.merchant) setTitle(result.merchant);
+            if (result.amount) setAmount(result.amount.toString());
+            if (result.date) setDate(result.date);
+            if (result.category) setCategory(result.category);
+
+            toast({
+              title: 'Scan Complete! ✨',
+              description: 'We filled in what we could find. Please verify the details.',
+            });
+          } else {
+            throw new Error(data.message || 'Failed to scan receipt');
+          }
+        } catch (error: any) {
+          toast({
+            title: 'Scan Failed',
+            description: error.message || 'Could not process the receipt image.',
+            variant: 'destructive',
+          });
+        } finally {
+          setIsScanning(false);
+          if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      setIsScanning(false);
+      toast({
+        title: 'Error',
+        description: 'Failed to read the file.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleValidation = () => {
     // Basic Validation
     if (!title || !amount || !date || !category) {
@@ -153,14 +221,14 @@ export default function AddTransaction() {
       const totalIncome = transactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
-      
+
       const totalExpenses = transactions
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
-      
+
       const newExpenseAmount = Number(amount);
       const projectedExpenses = totalExpenses + newExpenseAmount;
-      
+
       // Check if there's no income at all
       if (totalIncome === 0) {
         setWarningMessage(
@@ -172,7 +240,7 @@ export default function AddTransaction() {
         setShowWarning(true);
         return;
       }
-      
+
       // Check if adding this expense would exceed total income
       if (projectedExpenses > totalIncome) {
         setWarningMessage(
@@ -372,9 +440,37 @@ export default function AddTransaction() {
         transition={{ duration: 0.4 }}
         className="max-w-2xl mx-auto"
       >
-        <Card className="glass-card shadow-glass">
-          <CardHeader>
+        <Card className="glass-card shadow-glass relative overflow-hidden">
+          {/* Scanning Overlay */}
+          {isScanning && (
+            <div className="absolute inset-0 z-50 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
+              <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+              <h3 className="text-xl font-semibold mb-2 bg-gradient-primary bg-clip-text text-transparent">Analyzing Receipt</h3>
+              <p className="text-muted-foreground">Extracting merchant, amount, and date...</p>
+            </div>
+          )}
+
+          <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-2xl">Add New Transaction</CardTitle>
+            <div>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleReceiptUpload}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="gap-2 border-primary/50 text-primary hover:bg-primary/10"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isScanning}
+              >
+                <Camera className="w-4 h-4" />
+                Scan Receipt
+              </Button>
+            </div>
           </CardHeader>
 
           <CardContent>
@@ -470,9 +566,9 @@ export default function AddTransaction() {
                           <>
                             <div className="h-px bg-border my-1" />
                             <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Goals</div>
-                            {goals.map((goal) => (
-                              <SelectItem key={goal.id} value={goal.title}>
-                                {goal.title}
+                            {Array.from(new Set(goals.map(g => g.title))).map((title) => (
+                              <SelectItem key={`goal-${title}`} value={title}>
+                                {title}
                               </SelectItem>
                             ))}
                           </>

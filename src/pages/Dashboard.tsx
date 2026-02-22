@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
-import { Wallet, TrendingUp, TrendingDown, Lightbulb } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Lightbulb, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   LineChart,
@@ -27,7 +27,7 @@ import { DashboardSkeleton } from '@/components/skeletons/DashboardSkeleton';
 import { generateFinancialInsights } from '@/utils/insights';
 import { generateSmartAlerts } from '@/utils/smartAlerts';
 import { SmartAlert } from '@/components/SmartAlert';
-import { identifyRecurringTransactions } from '@/utils/subscriptionUtils';
+import { identifyRecurringTransactions, type Subscription } from '@/utils/subscriptionUtils';
 
 const ChartEmptyState = ({ message }: { message: string }) => (
   <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
@@ -40,6 +40,7 @@ export default function Dashboard() {
   const [user, setUser] = useState<User | null>(() => auth.currentUser);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]); // Added for alerts
+  const [manualSubscriptions, setManualSubscriptions] = useState<any[]>([]); // Added for safe to spend
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -55,7 +56,9 @@ export default function Dashboard() {
 
     if (isGuestSession) {
       const local = loadUserTransactions();
+      const localSubs = JSON.parse(localStorage.getItem('finzora_subscriptions') || '[]');
       setTransactions([...local]);
+      setManualSubscriptions(localSubs);
       setTimeout(() => setIsLoading(false), 500);
       return;
     }
@@ -104,9 +107,20 @@ export default function Dashboard() {
       setBudgets(docs);
     });
 
+    // 3. Manual Subscriptions Listener
+    const subQuery = query(collection(db, 'users', user.uid, 'subscriptions'));
+    const unsubSub = onSnapshot(subQuery, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setManualSubscriptions(docs);
+    });
+
     return () => {
       unsubTx();
       unsubBudget();
+      unsubSub();
     };
   }, [isGuestSession, user]);
 
@@ -176,8 +190,64 @@ export default function Dashboard() {
     }));
   }, [transactions]);
 
+
+
+  const lineData = computedLineData;
+  const pieData = computedPieData;
+
+  const insights = useMemo(() => {
+    return generateFinancialInsights(transactions);
+  }, [transactions]);
+
+  const alerts = useMemo(() => {
+    return generateSmartAlerts(transactions, budgets);
+  }, [transactions, budgets]);
+
+  const subscriptions = useMemo(() => {
+    const autoDetected = identifyRecurringTransactions(transactions);
+
+    const processedManual = manualSubscriptions.map(sub => {
+      const nextDue = new Date(sub.nextDueDate);
+      const today = new Date();
+      const diffTime = nextDue.getTime() - today.getTime();
+      const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      let status: Subscription['status'] = 'due';
+      if (daysUntilDue < 0) status = 'overdue';
+
+      return {
+        id: sub.id,
+        name: sub.name,
+        averageAmount: Number(sub.amount) || 0,
+        frequency: sub.frequency,
+        nextDueDate: nextDue,
+        status: status,
+        daysUntilDue: daysUntilDue
+      } as Subscription;
+    });
+
+    const mergedMap = new Map<string, Subscription>();
+    autoDetected.forEach(sub => mergedMap.set(sub.name.toLowerCase().trim(), sub));
+    processedManual.forEach(sub => mergedMap.set(sub.name.toLowerCase().trim(), sub));
+
+    return Array.from(mergedMap.values()).sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+  }, [transactions, manualSubscriptions]);
+
+  const safeToSpend = useMemo(() => {
+    // Sum of subscriptions due within the next 30 days
+    const upcomingSubs = subscriptions.filter(sub => sub.daysUntilDue >= 0 && sub.daysUntilDue <= 30);
+    const subSum = upcomingSubs.reduce((sum, sub) => sum + sub.averageAmount, 0);
+    return Math.max(0, totalBalance - subSum);
+  }, [totalBalance, subscriptions]);
+
   // UNIFIED SUMMARY CARDS
   const summaryCards = [
+    {
+      title: 'Safe to Spend',
+      amount: `₹${safeToSpend.toLocaleString()}`,
+      icon: ShieldCheck,
+      trend: `${subscriptions.filter(s => s.daysUntilDue >= 0 && s.daysUntilDue <= 30).length} upcoming bills deducted`,
+    },
     {
       title: 'Total Balance',
       amount: `₹${totalBalance.toLocaleString()}`,
@@ -204,21 +274,6 @@ export default function Dashboard() {
     },
   ];
 
-  const lineData = computedLineData;
-  const pieData = computedPieData;
-
-  const insights = useMemo(() => {
-    return generateFinancialInsights(transactions);
-  }, [transactions]);
-
-  const alerts = useMemo(() => {
-    return generateSmartAlerts(transactions, budgets);
-  }, [transactions, budgets]);
-
-  const subscriptions = useMemo(() => {
-    return identifyRecurringTransactions(transactions);
-  }, [transactions]);
-
   if (isLoading) {
     return (
       <AppLayout showProfile>
@@ -239,7 +294,7 @@ export default function Dashboard() {
       <SmartAlert alerts={alerts} />
 
       {/* Summary Cards */}
-      <div className="grid md:grid-cols-3 gap-6 mb-6">
+      <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
         {summaryCards.map((card, index) => (
           <SummaryCard
             key={card.title}

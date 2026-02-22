@@ -21,6 +21,7 @@ from crypto_service import CryptoService
 from chat_service import ChatService
 from budget_service import BudgetService
 from email_service import EmailService
+from receipt_service import ReceiptScanner
 from validations import validate_transaction, validate_stock_input
 import random
 import string
@@ -96,9 +97,11 @@ load_dotenv()
 # Initialize Flask application
 app = Flask(__name__)
 # Enable CORS for known frontends to avoid wildcard + credentials issues.
+# Enable CORS for known frontends to avoid wildcard + credentials issues.
+# Wildcards '*' cannot be used with supports_credentials=True
 allowed_origins = [origin.strip() for origin in os.getenv(
     "CORS_ORIGINS",
-    "https://finzora.vercel.app,http://localhost:5173"
+    "https://finzora.vercel.app,http://localhost:5173,http://localhost:8080,http://localhost:8081,http://localhost:8082"
 ).split(",") if origin.strip()]
 CORS(
     app,
@@ -116,6 +119,7 @@ crypto_service = CryptoService()
 chat_service = ChatService()
 budget_service = BudgetService(firebase_service)
 email_service = EmailService()
+receipt_scanner = ReceiptScanner()
 
 # ============================================================================
 # STARTUP VERIFICATION
@@ -379,6 +383,42 @@ def get_subscription_candidates():
         subscriptions = detect_recurring_subscriptions(expenses, min_occurrences=min_occ)
         return jsonify({'success': True, 'data': subscriptions}), 200
     except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/receipt/scan', methods=['POST'])
+def scan_receipt():
+    """
+    Scan a receipt image to extract transaction details
+    Expected JSON: { image_base64 }
+    Returns: { success, data: { merchant, amount, date, category } }
+    """
+    try:
+        print("====== INCOMING RECEIPT SCAN REQUEST ======")
+        data = request.get_json()
+        if not data:
+            print("ERROR: No JSON payload received")
+            return jsonify({'success': False, 'message': 'No JSON payload received'}), 400
+            
+        image_base64 = data.get('image_base64')
+        if not image_base64:
+            print("ERROR: image_base64 key is missing or empty")
+            return jsonify({'success': False, 'message': 'Image data is required'}), 400
+            
+        print(f"DEBUG: Received image data. Length: {len(image_base64)}")
+        result = receipt_scanner.scan_receipt(image_base64)
+        print(f"DEBUG: scanner result: {result}")
+        
+        if result and 'error' not in result:
+            return jsonify({'success': True, 'data': result}), 200
+        else:
+            print(f"ERROR: Scanner returned error: {result.get('error') if result else 'Unknown'}")
+            return jsonify({'success': False, 'message': result.get('error', 'Failed to scan receipt')}), 400
+            
+    except Exception as e:
+        import traceback
+        print(f"EXCEPTION in scan_receipt: {str(e)}")
+        traceback.print_exc()
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
