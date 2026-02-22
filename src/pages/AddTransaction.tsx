@@ -54,6 +54,7 @@ export default function AddTransaction() {
   const [goals, setGoals] = useState<{ id: string; title: string }[]>([]);
   const [budgets, setBudgets] = useState<{ category: string; limit: number }[]>([]);
   const [spendingStats, setSpendingStats] = useState<Record<string, number>>({});
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
   // UI State
   const [showWarning, setShowWarning] = useState(false);
@@ -81,26 +82,31 @@ export default function AddTransaction() {
       })));
     });
 
-    // 3. Fetch Spending for Current Month
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
+    // 3. Fetch All Transactions for Income/Expense Balance Check
+    const allTransactionsQuery = query(collection(db, 'users', user.uid, 'transactions'));
+    const unsubAllTransactions = onSnapshot(allTransactionsQuery, (snapshot) => {
+      const txs: Transaction[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        title: doc.data().title,
+        amount: Number(doc.data().amount),
+        date: doc.data().date,
+        category: doc.data().category,
+        description: doc.data().description,
+        type: doc.data().type as 'income' | 'expense'
+      }));
+      setTransactions(txs);
 
-    const transactionsQuery = query(
-      collection(db, 'users', user.uid, 'transactions'),
-      where('type', '==', 'expense')
-      // removed date filter to avoid index error
-    );
+      // Also calculate spending stats for budget checks
+      const startOfMonth = new Date();
+      startOfMonth.setDate(1);
+      startOfMonth.setHours(0, 0, 0, 0);
+      const startOfMonthStr = startOfMonth.toISOString().split('T')[0];
 
-    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
       const stats: Record<string, number> = {};
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        // Client-side date filter
-        if (data.date >= startOfMonthStr) {
-          const cat = data.category || 'Other';
-          stats[cat] = (stats[cat] || 0) + Number(data.amount);
+      txs.forEach(tx => {
+        if (tx.type === 'expense' && tx.date >= startOfMonthStr) {
+          const cat = tx.category || 'Other';
+          stats[cat] = (stats[cat] || 0) + tx.amount;
         }
       });
       setSpendingStats(stats);
@@ -109,7 +115,7 @@ export default function AddTransaction() {
     return () => {
       unsubGoals();
       unsubBudgets();
-      unsubTransactions();
+      unsubAllTransactions();
     };
   }, []);
 
@@ -142,6 +148,49 @@ export default function AddTransaction() {
       return;
     }
 
+    // Income vs Expense Validation - CORE LOGIC CHECK
+    if (type === 'expense') {
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const totalExpenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const newExpenseAmount = Number(amount);
+      const projectedExpenses = totalExpenses + newExpenseAmount;
+      
+      // Check if there's no income at all
+      if (totalIncome === 0) {
+        setWarningMessage(
+          `⚠️ WARNING: You have no income recorded yet!||` +
+          `You are trying to add an expense of ₹${newExpenseAmount.toLocaleString()} but you haven't recorded any income.||` +
+          `It's recommended to add your income first to properly track your finances.||` +
+          `Do you still want to continue?`
+        );
+        setShowWarning(true);
+        return;
+      }
+      
+      // Check if adding this expense would exceed total income
+      if (projectedExpenses > totalIncome) {
+        setWarningMessage(
+          `⚠️ WARNING: This expense will exceed your total income!||` +
+          `Total Income: ₹${totalIncome.toLocaleString()}||` +
+          `Current Expenses: ₹${totalExpenses.toLocaleString()}||` +
+          `New Expense: ₹${newExpenseAmount.toLocaleString()}||` +
+          `Projected Total Expenses: ₹${projectedExpenses.toLocaleString()}||` +
+          `||` +
+          `You will be ₹${(projectedExpenses - totalIncome).toLocaleString()} over your income!||` +
+          `||` +
+          `Are you sure you want to continue?`
+        );
+        setShowWarning(true);
+        return; // Stop and wait for user confirmation
+      }
+    }
+
     // Budget Check Logic
     if (type === 'expense') {
       const budget = budgets.find(b => b.category === category);
@@ -154,7 +203,14 @@ export default function AddTransaction() {
           // If currently under budget but this pushes over
           if (currentSpent <= budget.limit) {
             setWarningMessage(
-              `This transaction of ₹${newAmount} will exceed your budget of ₹${budget.limit} for ${category}. Current spending: ₹${currentSpent}.`
+              `⚠️ Budget Limit Exceeded!||` +
+              `Category: ${category}||` +
+              `Budget Limit: ₹${budget.limit.toLocaleString()}||` +
+              `Current Spending: ₹${currentSpent.toLocaleString()}||` +
+              `New Transaction: ₹${newAmount.toLocaleString()}||` +
+              `Projected Total: ₹${projectedTotal.toLocaleString()}||` +
+              `||` +
+              `This will exceed your budget by ₹${(projectedTotal - budget.limit).toLocaleString()}.`
             );
             setShowWarning(true);
             return; // Stop and wait for confirmation
@@ -162,7 +218,13 @@ export default function AddTransaction() {
           // If ALREADY over budget
           else {
             setWarningMessage(
-              `You have already exceeded your budget of ₹${budget.limit} for ${category}. Adding ₹${newAmount} will increase deficit.`
+              `⚠️ Already Over Budget!||` +
+              `Category: ${category}||` +
+              `Budget Limit: ₹${budget.limit.toLocaleString()}||` +
+              `Current Spending: ₹${currentSpent.toLocaleString()} (Already ₹${(currentSpent - budget.limit).toLocaleString()} over)||` +
+              `New Transaction: ₹${newAmount.toLocaleString()}||` +
+              `||` +
+              `Adding this will increase your deficit further.`
             );
             setShowWarning(true);
             return; // Stop and wait for confirmation
@@ -456,8 +518,14 @@ export default function AddTransaction() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Budget Warning ⚠️</AlertDialogTitle>
-            <AlertDialogDescription>
-              {warningMessage}
+            <AlertDialogDescription asChild>
+              <div className="space-y-1 text-sm">
+                {warningMessage.split('||').map((line, idx) => (
+                  <p key={idx} className={line.trim() === '' ? 'h-2' : ''}>
+                    {line}
+                  </p>
+                ))}
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
