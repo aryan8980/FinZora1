@@ -5,7 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Image, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -64,6 +70,7 @@ export default function AddTransaction() {
   const [isScanning, setIsScanning] = useState(false);
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const cameraInputRef = React.useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -192,6 +199,7 @@ export default function AddTransaction() {
         } finally {
           setIsScanning(false);
           if (fileInputRef.current) fileInputRef.current.value = '';
+          if (cameraInputRef.current) cameraInputRef.current.value = '';
         }
       };
       reader.readAsDataURL(file);
@@ -460,16 +468,37 @@ export default function AddTransaction() {
                 ref={fileInputRef}
                 onChange={handleReceiptUpload}
               />
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2 border-primary/50 text-primary hover:bg-primary/10"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isScanning}
-              >
-                <Camera className="w-4 h-4" />
-                Scan Receipt
-              </Button>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                className="hidden"
+                ref={cameraInputRef}
+                onChange={handleReceiptUpload}
+              />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2 border-primary/50 text-primary hover:bg-primary/10"
+                    disabled={isScanning}
+                  >
+                    <Camera className="w-4 h-4" />
+                    Scan Receipt
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => cameraInputRef.current?.click()} className="cursor-pointer">
+                    <Camera className="w-4 h-4 mr-2" />
+                    Take Photo
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
+                    <Image className="w-4 h-4 mr-2" />
+                    Upload from Gallery
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </CardHeader>
 
