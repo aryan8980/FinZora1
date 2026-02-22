@@ -10,7 +10,7 @@ import os
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
 from flask_cors import CORS
 from datetime import datetime, timedelta
 from collections import defaultdict
@@ -386,13 +386,21 @@ def get_subscription_candidates():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
-@app.route('/api/receipt/scan', methods=['POST'])
+@app.route('/api/receipt/scan', methods=['POST', 'OPTIONS'])
 def scan_receipt():
     """
     Scan a receipt image to extract transaction details
     Expected JSON: { image_base64 }
     Returns: { success, data: { merchant, amount, date, category } }
     """
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.headers.add("Access-Control-Allow-Origin", "https://finzora.vercel.app")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type,Authorization")
+        response.headers.add("Access-Control-Allow-Methods", "POST,OPTIONS")
+        response.headers.add("Access-Control-Allow-Credentials", "true")
+        return response, 200
+
     try:
         print("====== INCOMING RECEIPT SCAN REQUEST ======")
         data = request.get_json()
